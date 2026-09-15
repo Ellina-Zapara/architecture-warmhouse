@@ -1,0 +1,48 @@
+@startuml
+title Climate Service — C4 Component Diagram
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Container_Boundary(climate, "Climate Service") {
+
+    Component(grpc_api, "Climate gRPC API", "Go + gRPC", "Приём команд от API Gateway: SetHeatingMode, GetTemperature, GetHistory")
+
+    Component(heating_ctrl, "Heating Controller", "Go", "Бизнес-логика: вкл/выкл, сравнение целевой и фактической температуры, решение о нагреве")
+
+    Component(temp_monitor, "Temperature Monitor", "Go", "Подписка на SensorReading, обновление текущей температуры, триггер Heating Controller")
+
+    Component(scheduler, "Schedule Manager", "Go + cron", "Расписания: по времени суток, дням недели, сезонам. Активация режимов")
+
+    Component(event_handler, "Event Handler", "Go + Kafka consumer", "Десериализация событий, маршрутизация: SensorReading → temp_monitor")
+
+    Component(event_pub, "Event Publisher", "Go + Kafka producer", "Публикация: HeatingStateChanged")
+
+    Component(climate_repo, "Climate Repository", "Go + pgx", "Чтение/запись: heating_modes, temperature_history, schedules")
+}
+
+ContainerDb(pg, "db_climate", "PostgreSQL", "heating_modes, temperature_history, schedules")
+Container(broker, "Message Broker", "Kafka", "")
+Container(device_gw, "Device Gateway", "Go", "")
+
+Rel(grpc_api, heating_ctrl, "Передаёт команду режима")
+Rel(grpc_api, climate_repo, "Запрос истории температур")
+
+Rel(heating_ctrl, climate_repo, "Чтение текущего режима, запись нового")
+Rel(heating_ctrl, event_pub, "Публикует HeatingStateChanged")
+Rel(heating_ctrl, device_gw, "SendDeviceCommand (gRPC sync) — команда нагрева")
+
+Rel(temp_monitor, climate_repo, "Запись нового показания в temperature_history")
+Rel(temp_monitor, heating_ctrl, "Передаёт актуальную температуру")
+
+Rel(scheduler, heating_ctrl, "Активация режима по расписанию")
+Rel(scheduler, climate_repo, "Чтение расписаний")
+
+Rel(event_handler, temp_monitor, "Передаёт SensorReading")
+Rel(event_handler, broker, "Consume from topic: sensor.readings")
+
+Rel(event_pub, broker, "Produce to topic: climate.events")
+Rel(climate_repo, pg, "SQL (pgx)")
+
+@enduml

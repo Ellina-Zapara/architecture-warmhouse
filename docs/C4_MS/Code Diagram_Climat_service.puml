@@ -1,0 +1,101 @@
+@startuml
+title Climate Service — Class Diagram (Heating Controller)
+
+skinparam classAttributeIconSize 0
+
+package domain {
+    class HeatingMode <<enum>> {
+        OFF
+        MANUAL
+        AUTO
+        ECONOMY
+    }
+
+    class HeatingState {
+        +HouseID: HouseID
+        +Mode: HeatingMode
+        +TargetTemp: float64
+        +CurrentTemp: float64
+        +IsActive: bool
+        +UpdatedAt: time.Time
+    }
+
+    class TemperatureReading {
+        +DeviceID: DeviceID
+        +HouseID: HouseID
+        +Value: float64
+        +Timestamp: time.Time
+    }
+
+    class Schedule {
+        +ID: ScheduleID
+        +HouseID: HouseID
+        +Cron: string
+        +Mode: HeatingMode
+        +TargetTemp: float64
+        +Active: bool
+    }
+}
+
+package ports {
+    interface ClimateRepository {
+        +GetHeatingState(ctx, HouseID) (HeatingState, error)
+        +SaveHeatingState(ctx, HeatingState) error
+        +SaveReading(ctx, TemperatureReading) error
+        +GetHistory(ctx, HouseID, from, to) ([]TemperatureReading, error)
+        +GetSchedules(ctx, HouseID) ([]Schedule, error)
+    }
+
+    interface DeviceGatewayClient {
+        +SendCommand(ctx, DeviceCommand) (CommandResult, error)
+    }
+
+    interface EventPublisher {
+        +PublishHeatingStateChanged(ctx, HeatingStateChanged) error
+    }
+}
+
+package app {
+    class HeatingController {
+        -repo: ClimateRepository
+        -deviceGW: DeviceGatewayClient
+        -pub: EventPublisher
+        -threshold: float64
+        +SetMode(ctx, HouseID, HeatingMode, targetTemp) error
+        +HandleReading(ctx, TemperatureReading) error
+        -evaluateAndCommand(ctx, HeatingState) error
+    }
+
+    class TemperatureMonitor {
+        -repo: ClimateRepository
+        -ctrl: HeatingController
+        +OnReading(ctx, TemperatureReading) error
+    }
+
+    class ScheduleManager {
+        -repo: ClimateRepository
+        -ctrl: HeatingController
+        -cron: *cron.Cron
+        +Start(ctx) error
+        +Stop()
+        -onSchedule(ctx, Schedule)
+    }
+
+    class ClimateGRPCHandler {
+        -ctrl: HeatingController
+        -repo: ClimateRepository
+        +SetHeatingMode(ctx, req) (resp, error)
+        +GetTemperature(ctx, req) (resp, error)
+        +GetHistory(ctx, req) (resp, error)
+    }
+}
+
+HeatingController --> ClimateRepository : reads/writes
+HeatingController --> DeviceGatewayClient : sends commands
+HeatingController --> EventPublisher : publishes
+TemperatureMonitor --> HeatingController : triggers
+ScheduleManager --> HeatingController : activates
+ClimateGRPCHandler --> HeatingController : delegates
+ClimateGRPCHandler --> ClimateRepository : reads
+
+@enduml

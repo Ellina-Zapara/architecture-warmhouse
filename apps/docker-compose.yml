@@ -1,0 +1,39 @@
+services:
+  order-service:
+    build: ./order-service
+    ports:
+      - "5004:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/orders
+    depends_on:
+      - db
+    networks:
+      - quickdelivery-network
+  logistics-service:
+    build: ./logistics-service
+    ports:
+      - "5005:5001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/orders
+    depends_on:
+      - db
+    networks:
+      - quickdelivery-network
+  db:
+    image: postgres:15
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: orders
+    ports:
+      - "5433:5432"
+    networks:
+      - quickdelivery-network
+
+networks:
+  quickdelivery-network:
+    driver: bridge
+
+volumes:
+  postgres-data:

@@ -1,0 +1,134 @@
+@startuml
+title db_home — ER-диаграмма (Home Automation Service)
+
+!define table(x) entity x << (T,#FFAAAA) >>
+!define pk(x) <b>PK</b> x
+
+table(lights) {
+  pk(light_id) : UUID
+  --
+  device_id : UUID NOT NULL UNIQUE
+  -- ссылка на db_device.devices.device_id
+  house_id : UUID NOT NULL
+  room_name : VARCHAR(100)
+  name : VARCHAR(100)
+  -- «Люстра в гостиной», «Торшер»
+  supports_brightness : BOOLEAN DEFAULT false
+  supports_color : BOOLEAN DEFAULT false
+  max_brightness : INT DEFAULT 100
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(light_states) {
+  pk(light_id) : UUID >> lights
+  --
+  is_on : BOOLEAN NOT NULL DEFAULT false
+  brightness : INT DEFAULT 100
+  -- 0-100, если supports_brightness
+  color : VARCHAR(20)
+  -- HEX "#FF5733", если supports_color
+  last_changed_by : VARCHAR(50)
+  -- "user:123", "automation:gate_open",
+  -- "schedule:morning"
+  updated_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+}
+
+table(gates) {
+  pk(gate_id) : UUID
+  --
+  device_id : UUID NOT NULL UNIQUE
+  -- ссылка на db_device.devices.device_id
+  house_id : UUID NOT NULL
+  name : VARCHAR(100)
+  -- «Гаражные ворота», «Калитка»
+  open_timeout_sec : INT DEFAULT 300
+  -- авто-алерт если открыты > N сек
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(gate_positions) {
+  pk(gate_id) : UUID >> gates
+  --
+  position : VARCHAR(20) NOT NULL DEFAULT 'closed'
+  -- open, closed, opening, closing, stopped
+  last_changed_by : VARCHAR(50)
+  -- "user:123", "schedule:night_close"
+  last_command_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+}
+
+table(gate_history) {
+  pk(history_id) : BIGSERIAL
+  --
+  gate_id : UUID NOT NULL >> gates
+  old_position : VARCHAR(20)
+  new_position : VARCHAR(20)
+  triggered_by : VARCHAR(50)
+  -- "user:123", "automation", "schedule"
+  duration_open_sec : INT
+  -- сколько было открыто
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(automation_rules) {
+  pk(rule_id) : UUID
+  --
+  house_id : UUID NOT NULL
+  name : VARCHAR(100)
+  -- «Свет при открытии ворот»
+  trigger_type : VARCHAR(30) NOT NULL
+  -- gate_opened, gate_closed,
+  -- device_status_changed, time_based
+  trigger_condition : JSONB
+  -- {"gate_id": "...", "position": "open"}
+  action_type : VARCHAR(30) NOT NULL
+  -- turn_on_light, turn_off_light,
+  -- close_gate, set_brightness
+  action_payload : JSONB
+  -- {"light_id": "...", "brightness": 80}
+  is_active : BOOLEAN DEFAULT true
+  created_at : TIMESTAMPTZ DEFAULT now()
+  updated_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(schedules) {
+  pk(schedule_id) : UUID
+  --
+  house_id : UUID NOT NULL
+  target_type : VARCHAR(20) NOT NULL
+  -- light, gate
+  target_id : UUID NOT NULL
+  -- light_id или gate_id
+  cron_expr : VARCHAR(100) NOT NULL
+  action : VARCHAR(30) NOT NULL
+  -- turn_on, turn_off, open, close
+  name : VARCHAR(100)
+  -- «Свет на веранде вечером»
+  is_active : BOOLEAN DEFAULT true
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+lights ||--|| light_states : "light_id"
+gates ||--|| gate_positions : "gate_id"
+gates ||--o{ gate_history : "gate_id"
+
+note bottom of automation_rules
+  trigger_type = gate_opened:
+  Automation Engine подписан
+  на Kafka-событие GateStateChanged,
+  проверяет condition, выполняет action.
+  
+  Прямой связи с gates/lights
+  нет — только JSONB-ссылки.
+end note
+
+note right of schedules
+  target_id — логическая ссылка
+  на light_id или gate_id
+  в этой же базе.
+  Полиморфная ассоциация:
+  target_type определяет, к какой
+  таблице относится target_id.
+end note
+
+@enduml

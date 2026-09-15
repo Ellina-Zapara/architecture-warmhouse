@@ -1,0 +1,87 @@
+@startuml
+title db_climate — ER-диаграмма (Climate Service)
+
+!define table(x) entity x << (T,#FFAAAA) >>
+!define pk(x) <b>PK</b> x
+
+table(houses) {
+  pk(house_id) : UUID
+  --
+  name : VARCHAR(200)
+  timezone : VARCHAR(50) DEFAULT 'Europe/Moscow'
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(heating_modes) {
+  pk(house_id) : UUID >> houses
+  --
+  mode : VARCHAR(20) NOT NULL DEFAULT 'off'
+  -- off, manual, auto, economy
+  target_temp : NUMERIC(4,1)
+  current_temp : NUMERIC(4,1)
+  is_active : BOOLEAN NOT NULL DEFAULT false
+  -- нагрев сейчас идёт?
+  last_command_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+}
+
+table(temperature_history) {
+  pk(reading_id) : BIGSERIAL
+  --
+  house_id : UUID NOT NULL >> houses
+  device_id : UUID NOT NULL
+  -- ссылка на device_id из db_device
+  -- (не FK — другая база)
+  value : NUMERIC(4,1) NOT NULL
+  unit : VARCHAR(10) DEFAULT 'celsius'
+  recorded_at : TIMESTAMPTZ NOT NULL
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(schedules) {
+  pk(schedule_id) : UUID
+  --
+  house_id : UUID NOT NULL >> houses
+  cron_expr : VARCHAR(100) NOT NULL
+  -- "0 6 * * 1-5" — будни в 6:00
+  mode : VARCHAR(20) NOT NULL
+  -- auto, economy, off
+  target_temp : NUMERIC(4,1)
+  name : VARCHAR(100)
+  -- «Утро», «Ночной режим», «Отъезд»
+  is_active : BOOLEAN DEFAULT true
+  created_at : TIMESTAMPTZ DEFAULT now()
+  updated_at : TIMESTAMPTZ DEFAULT now()
+}
+
+houses ||--|| heating_modes : "house_id"
+houses ||--o{ temperature_history : "house_id"
+houses ||--o{ schedules : "house_id"
+
+note bottom of temperature_history
+  Partition by month:
+  temperature_history_2026_09
+  temperature_history_2026_10
+  ...
+  
+  Retention: 12 месяцев,
+  старые партиции archive.
+  
+  device_id — логическая ссылка
+  на db_device.devices.device_id.
+  Не foreign key — другая БД.
+  Валидация через gRPC-вызов
+  при необходимости.
+end note
+
+note right of heating_modes
+  Одна строка на дом (1:1).
+  current_temp обновляется
+  по событию SensorReading
+  из Kafka (async).
+  is_active переключается
+  HeatingController при
+  сравнении target и current.
+end note
+
+@enduml

@@ -1,0 +1,52 @@
+@startuml
+title Security & Monitoring Service — C4 Component Diagram
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Container_Boundary(security, "Security & Monitoring") {
+
+    Component(grpc_api, "Security gRPC API", "Go + gRPC", "GetCameraStream, GetAlerts, ResolveAlert, GetEventLog")
+
+    Component(camera_mgr, "Camera Manager", "Go", "Запрос видеопотока/снимков через Device Gateway, проксирование пользователю")
+
+    Component(alert_engine, "Alert Engine", "Go", "Применение правил к событиям, генерация алертов")
+
+    Component(rule_mgr, "Rule Manager", "Go", "CRUD правил: пороги температуры, таймаут offline, таймаут ворот")
+
+    Component(notifier, "Notifier", "Go", "Отправка уведомлений: webhook, push, email")
+
+    Component(event_handler, "Event Handler", "Go + Kafka consumer", "Consume: ВСЕ топики. Маршрутизация в Alert Engine и Event Log")
+
+    Component(event_pub, "Event Publisher", "Go + Kafka producer", "Produce: AlertRaised, AlertResolved")
+
+    Component(repo, "Security Repository", "Go + pgx", "Чтение/запись: alerts, alert_rules, event_log, video_metadata")
+}
+
+ContainerDb(pg, "db_security", "PostgreSQL", "alerts, alert_rules, event_log, video_metadata")
+Container(broker, "Message Broker", "Kafka", "")
+Container(device_gw, "Device Gateway", "Go", "")
+
+Rel(grpc_api, camera_mgr, "Запрос видеопотока")
+Rel(grpc_api, repo, "Запрос алертов, журнала")
+Rel(grpc_api, alert_engine, "ResolveAlert")
+
+Rel(camera_mgr, device_gw, "RequestCameraSnapshot / Stream (gRPC sync)")
+Rel(camera_mgr, repo, "Запись метаданных видео")
+
+Rel(alert_engine, rule_mgr, "Загрузка активных правил")
+Rel(alert_engine, repo, "Запись алерта")
+Rel(alert_engine, event_pub, "Публикует AlertRaised")
+Rel(alert_engine, notifier, "Триггер уведомления")
+
+Rel(rule_mgr, repo, "CRUD alert_rules")
+
+Rel(event_handler, alert_engine, "Передаёт событие для анализа")
+Rel(event_handler, repo, "Запись в event_log (append-only)")
+Rel(event_handler, broker, "Consume: sensor.readings, device.status, climate.events, home.events")
+
+Rel(event_pub, broker, "Produce: security.alerts")
+Rel(repo, pg, "SQL (pgx)")
+
+@enduml
