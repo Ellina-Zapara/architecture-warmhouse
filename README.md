@@ -9,7 +9,7 @@ Project_template
 
 Управление отоплением:
 
-Пользователи могут удалённо включать/выключать отопление в своих домах.
+Пользователи могут удалённо включать\выключать отопление в своих домах.
 Мониторинг температуры. Система получает данные о температуре с датчиков, установленных в домах. 
 Пользователи могут просматривать текущую температуру в своих домах через веб-интерфейс.
 Система поддерживает удаленный контроль температуры в рамках заданного режима, осуществляет регистрацию новых датчиков в системе.
@@ -35,20 +35,20 @@ Project_template
 
 * Домен «Управление устройствами»
 
-Регистрация датчиков в системе, поддержание связи, получение сырых показаний через Third-Party API, передача команд на включение/выключение.
+Регистрация датчиков в системе, поддержание связи, получение сырых показаний через Third-Party API, передача команд на включение\выключение.
 
 Граница: всё, что касается физического уровня — датчики, контроллеры, канал связи. В границы не входит понимание, зачем нужна температура и кто её запросил;
 только доставка данных и выполнение команды.
 
-Ключевые сущности: датчик (Sensor), контроллер, соединение (Connection), статус устройства (online/offline).
+Ключевые сущности: датчик (Sensor), контроллер, соединение (Connection), статус устройства (online\offline).
 
 * Домен «Управление отоплением»
 
-Бизнес-логика: пользователь включает/выключает отопление, администратор устанавливает температурный режим и контролирует аварии. Принятие решений о том, нужно ли включать обогрев или выключать, изменить температурный режим.
+Бизнес-логика: пользователь включает\выключает отопление, администратор устанавливает температурный режим и контролирует аварии. Принятие решений о том, нужно ли включать обогрев или выключать, изменить температурный режим.
 
-Граница: команды и политики. Потребляет целевые значения от пользователей/администратора и фактические показания из «Мониторинга температуры». Отдаёт команды в «Управление устройствами».
+Граница: команды и политики. Потребляет целевые значения от пользователей\администратора и фактические показания из «Мониторинга температуры». Отдаёт команды в «Управление устройствами».
 
-Ключевые сущности: режим отопления (on/off), целевая температура, расписание, номер помещения/дом.
+Ключевые сущности: режим отопления (on\off), целевая температура, расписание, номер помещения\дом.
 
 
 * Домен «Мониторинг температуры»
@@ -61,9 +61,9 @@ Project_template
 
 * Домен «Управление пользователями и доступом»
 
-Аутентификация, роли (владелец дома / администратор), разграничение доступа. Владелец управляет только своим домом, администратор — всей системой.
+Аутентификация, роли (владелец дома \ администратор), разграничение доступа. Владелец управляет только своим домом, администратор — всей системой.
 
-Граница: какой user может контролировать конкретный дом/помещение, кто может менять глобальные настройки. Домен не знает про температуру — только про права.
+Граница: какой user может контролировать конкретный дом\помещение, кто может менять глобальные настройки. Домен не знает про температуру — только про права.
 
 Ключевые сущности: пользователь (User), роль (Role), дом (House), привязка пользователь-дом.
 
@@ -81,7 +81,7 @@ Project_template
 
 Граница: технический контекст. Обслуживает все остальные домены, не содержит бизнес-логики.
 
-Ключевые сущности: таблицы/схемы, репозитории, миграции.
+Ключевые сущности: таблицы\схемы, репозитории, миграции.
 
 4. Проблемы монолитного решения
 
@@ -103,70 +103,70 @@ Project_template
 
 * Визуализация контекста системы — диаграмма С4
 
-[Диаграмма контекта монолитного приложения]("/docs/C4_MS/Container_TOBE.png")
+[Диаграмма контекта монолитного приложения](docs\C4_MS\Container_TOBE.png)
 
-Код диаграммы PluntUML [здесь]("\docs\Monolit\Context_ASIS.puml") 
+Код диаграммы PluntUML [здесь](docs\Monolit\Context_ASIS.puml) 
 
 ## Задание 2. Проектирование микросервисной архитектуры
 
-1. [Открыть Диаграмму контейнеров]("\docs\C4_MS\Container_TOBE.png")
+1. [Открыть Диаграмму контейнеров](docs\C4_MS\Container_TOBE.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Container_TOBE.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Container_TOBE.puml)
 
 2. *Диаграммы компонентов по выделенным микросервисам*
 
-2.1. [Открыть Диаграмму компонентов Climat-service]("\docs\C4_MS\Component_Climate_service.png")
+2.1. [Открыть Диаграмму компонентов Climat-service](docs\C4_MS\Component_Climate_service.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Component_Climate_service.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Component_Climate_service.puml)
 
-2.2. [Открыть Диаграмму компонентов Home-automation-service]("\docs\C4_MS\Component_Home Automation Service.png")
+2.2. [Открыть Диаграмму компонентов Home-automation-service](docs\C4_MS\Component_Home Automation Service.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Component_Home Automation Service.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Component_Home Automation Service.puml)
 
-2.3. [Открыть Диаграмму компонентов Monitoring-Security-service]("\docs\C4_MS\Component_Monitoring_Security.png")
+2.3. [Открыть Диаграмму компонентов Monitoring-Security-service](docs\C4_MS\Component_Monitoring_Security.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Component_Monitoring_Security.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Component_Monitoring_Security.puml)
 
-2.4. [Открыть Диаграмму компонентов Device-Gateway-service]("\docs\C4_MS\Component_Device_Manage.png")
+2.4. [Открыть Диаграмму компонентов Device-Gateway-service](docs\C4_MS\Component_Device_Manage.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Component_Device_Manage.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Component_Device_Manage.puml)
 
 3. *Диаграмма кода (Code)*
 
-3.1. [Открыть диаграмму кода climate-service]("\docs\C4_MS\Code Diagram_Climat_service.png")
+3.1. [Открыть диаграмму кода climate-service](docs\C4_MS\Code Diagram_Climat_service.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Code Diagram_Climat_service.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Code Diagram_Climat_service.puml)
 
-3.2 [Открыть диаграмму кода device-gateway-service]("\docs\C4_MS\Code Diagram_Device_Manage.png")
+3.2 [Открыть диаграмму кода device-gateway-service](docs\C4_MS\Code Diagram_Device_Manage.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Code Diagram_Device_Manage.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Code Diagram_Device_Manage.puml)
 
-3.3. [Открыть диаграмму последовательности операции: Передача показаний температуры]("\docs\C4_MS\Sequence_Climate_sensor.png")
+3.3. [Открыть диаграмму последовательности операции: Передача показаний температуры](docs\C4_MS\Sequence_Climate_sensor.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Sequence_Climate_sensor.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Sequence_Climate_sensor.puml)
 
-3.4. [Открыть диаграмму последовательности операции: Включить отопление]("\docs\C4_MS\Sequence_Climate_switch.png")
+3.4. [Открыть диаграмму последовательности операции: Включить отопление](docs\C4_MS\Sequence_Climate_switch.png)
 
-Код диаграммы PlantUML [здесь]("\docs\C4_MS\Sequence_Climate_switch.puml")
+Код диаграммы PlantUML [здесь](docs\C4_MS\Sequence_Climate_switch.puml)
 
 
 ## Задание 3. Разработка ER-диаграммы
 
-3.1. [Открыть ER-диаграмму БД climate-service]("\docs\ER_MS\ER-diagram_Climate_service.png")
+3.1. [Открыть ER-диаграмму БД climate-service](docs\ER_MS\ER-diagram_Climate_service.png)
 
-Код диаграммы PlantUML [здесь]("\docs\ER_MS\ER-diagram_Climate_service.puml")
+Код диаграммы PlantUML [здесь](docs\ER_MS\ER-diagram_Climate_service.puml)
 
-3.2. [Открыть ER-диаграмму БД Device-Gateway-service]("\docs\ER_MS\ER-diagram_Device_Manage.png")
+3.2. [Открыть ER-диаграмму БД Device-Gateway-service](docs\ER_MS\ER-diagram_Device_Manage.png)
 
-Код диаграммы PlantUML [здесь]("\docs\ER_MS\ER-diagram_Device_Manage.puml")
+Код диаграммы PlantUML [здесь](docs\ER_MS\ER-diagram_Device_Manage.puml)
 
-3.3. [Открыть ER-диаграмму БД Home-automation-service]("\docs\ER_MS\ER-diagram_Home_Automation.png")
+3.3. [Открыть ER-диаграмму БД Home-automation-service](docs\ER_MS\ER-diagram_Home_Automation.png)
 
-Код диаграммы PlantUML [здесь]("\docs\ER_MS\ER-diagram_Home_Automation.puml")
+Код диаграммы PlantUML [здесь](docs\ER_MS\ER-diagram_Home_Automation.puml)
 
-3.4. [Открыть ER-диаграмму БД Monitoring_security-service]("\docs\ER_MS\ER-diagram_Security_Monitoring.png")
+3.4. [Открыть ER-диаграмму БД Monitoring_security-service](docs\ER_MS\ER-diagram_Security_Monitoring.png)
 
-Код диаграммы PlantUML [здесь]("\docs\ER_MS\ER-diagram_Security_Monitoring.puml")
+Код диаграммы PlantUML [здесь](docs\ER_MS\ER-diagram_Security_Monitoring.puml)
 
 
 ## Задание 4. Создание и документирование API
@@ -174,7 +174,7 @@ Project_template
 Укажите, какой тип API вы будете использовать для взаимодействия микросервисов. Объясните своё решение.
 
 2. Документация API
-Здесь приложите ссылки на документацию API для микросервисов, которые вы спроектировали в первой части проектной работы. Для документирования используйте Swagger/OpenAPI или AsyncAPI.
+Здесь приложите ссылки на документацию API для микросервисов, которые вы спроектировали в первой части проектной работы. Для документирования используйте Swagger\OpenAPI или AsyncAPI.
 
 Задание 5. Работа с docker и docker-compose
 Перейдите в apps.
@@ -183,39 +183,39 @@ Project_template
 
 Вам нужно:
 
-сделать простое приложение temperature-api на любом удобном для вас языке программирования, которое при запросе /temperature?location= будет отдавать рандомное значение температуры.
+сделать простое приложение temperature-api на любом удобном для вас языке программирования, которое при запросе \temperature?location= будет отдавать рандомное значение температуры.
 Locations - название комнаты, sensorId - идентификатор названия комнаты
 
-	// If no location is provided, use a default based on sensor ID
-	if location == "" {
+	\\ If no location is provided, use a default based on sensor ID
+	if location ==  {
 		switch sensorID {
-		case "1":
-			location = "Living Room"
-		case "2":
-			location = "Bedroom"
-		case "3":
-			location = "Kitchen"
+		case 1:
+			location = Living Room
+		case 2:
+			location = Bedroom
+		case 3:
+			location = Kitchen
 		default:
-			location = "Unknown"
+			location = Unknown
 		}
 	}
 
-	// If no sensor ID is provided, generate one based on location
-	if sensorID == "" {
+	\\ If no sensor ID is provided, generate one based on location
+	if sensorID ==  {
 		switch location {
-		case "Living Room":
-			sensorID = "1"
-		case "Bedroom":
-			sensorID = "2"
-		case "Kitchen":
-			sensorID = "3"
+		case Living Room:
+			sensorID = 1
+		case Bedroom:
+			sensorID = 2
+		case Kitchen:
+			sensorID = 3
 		default:
-			sensorID = "0"
+			sensorID = 0
 		}
 	}
 Приложение следует упаковать в Docker и добавить в docker-compose. Порт по умолчанию должен быть 8081
 
-Кроме того для smart_home приложения требуется база данных - добавьте в docker-compose файл настройки для запуска postgres с указанием скрипта инициализации ./smart_home/init.sql
+Кроме того для smart_home приложения требуется база данных - добавьте в docker-compose файл настройки для запуска postgres с указанием скрипта инициализации .\smart_home\init.sql
 
 Для проверки можно использовать Postman коллекцию smarthome-api.postman_collection.json и вызвать:
 
