@@ -133,11 +133,11 @@ Project_template
 
 3. *Диаграмма кода (Code)*
 
-3.1.  [Открыть диаграмму кода climate-service](docs/C4_MS/Code Diagram_Climat_service.png)
+3.1. [Открыть Диаграмму кода climate-service](docs/C4_MS/Code Diagram_Climat_service.png)
 
 Код диаграммы PlantUML [здесь](docs/C4_MS/Code Diagram_Climat_service.puml)
 
-3.2 [Открыть диаграмму кода device-gateway-service](docs/C4_MS/Code Diagram_Device_Manage.png)
+3.2. [Открыть Диаграмму кода device-gateway-service](docs/C4_MS/Code Diagram_Device_Manage.png)
 
 Код диаграммы PlantUML [здесь](docs/C4_MS/Code Diagram_Device_Manage.puml)
 
