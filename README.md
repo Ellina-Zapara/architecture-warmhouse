@@ -119,9 +119,9 @@ Project_template
 
 Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Climate_service.puml)
 
-2.2. [Открыть Диаграмму компонентов Home-automation-service](docs/C4_MS/Component_Home Automation Service.png)
+2.2. [Открыть Диаграмму компонентов Home-automation-service](docs/C4_MS/Component_Home_Automation Service.png)
 
-Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Home Automation Service.puml)
+Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Home_Automation Service.puml)
 
 2.3. [Открыть Диаграмму компонентов Monitoring-Security-service](docs/C4_MS/Component_Monitoring_Security.png)
 
@@ -133,13 +133,13 @@ Project_template
 
 3. *Диаграмма кода (Code)*
 
-3.1. [Открыть Диаграмму кода climate-service](docs/C4_MS/Code Diagram_Climat_service.png)
+3.1. [Открыть Диаграмму кода climate-service](docs/C4_MS/Code_Diagram_Climat_service.png)
 
-Код диаграммы PlantUML [здесь](docs/C4_MS/Code Diagram_Climat_service.puml)
+Код диаграммы PlantUML [здесь](docs/C4_MS/Code_Diagram_Climat_service.puml)
 
-3.2. [Открыть Диаграмму кода device-gateway-service](docs/C4_MS/Code Diagram_Device_Manage.png)
+3.2. [Открыть Диаграмму кода device-gateway-service](docs/C4_MS/Code_Diagram_Device_Manage.png)
 
-Код диаграммы PlantUML [здесь](docs/C4_MS/Code Diagram_Device_Manage.puml)
+Код диаграммы PlantUML [здесь](docs/C4_MS/Code_Diagram_Device_Manage.puml)
 
 3.3. [Открыть диаграмму последовательности операции: Передача показаний температуры](docs/C4_MS/Sequence_Climate_sensor.png)
 
