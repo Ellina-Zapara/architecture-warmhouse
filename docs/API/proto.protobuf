@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package climate.system;
+
+option go_package = "github.com/warmhouse/climate-system/proto";
+option java_package = "com.warmhouse.climate.system.proto";
+
+// --- Общие типы (можно вынести в отдельный common.proto) ---
+message Location {
+  string id = 1;
+  string name = 2;
+  double latitude = 3;
+  double longitude = 4;
+}
+
+message SensorReading {
+  string sensor_id = 1;
+  double temperature_c = 2;
+  double humidity_pct = 3;
+  int64 timestamp_unix_ms = 4;
+}
+
+// --- Climate Service ---
+service ClimateService {
+  // Получить текущую температуру по локации (unary)
+  rpc GetCurrentTemperature(GetCurrentTemperatureRequest) returns (GetCurrentTemperatureResponse);
+
+  // Потоковая передача показаний с датчиков (server streaming) — идеально для телеметрии
+  rpc StreamReadings(StreamReadingsRequest) returns (stream SensorReading);
+
+  // Получить список локаций с фильтрами
+  rpc ListLocations(ListLocationsRequest) returns (ListLocationsResponse);
+}
+
+message GetCurrentTemperatureRequest {
+  string location_id = 1;
+}
+
+message GetCurrentTemperatureResponse {
+  Location location = 1;
+  SensorReading reading = 2;
+}
+
+message StreamReadingsRequest {
+  string location_id = 1;
+  repeated string sensor_ids = 2; // можно подписаться на несколько датчиков
+}
+
+message ListLocationsRequest {
+  int32 limit = 1;
+  string cursor = 2;
+  bool include_empty = 3;
+}
+
+message ListLocationsResponse {
+  repeated Location locations = 1;
+  string next_cursor = 2;
+}
+
+// --- Device Service ---
+service DeviceService {
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+  rpc UpdateDeviceStatus(UpdateDeviceStatusRequest) returns (UpdateDeviceStatusResponse);
+  rpc DeleteDevice(DeleteDeviceRequest) returns (DeleteDeviceResponse);
+}
+
+message RegisterDeviceRequest {
+  string device_id = 1;
+  string type = 2;          // "sensor", "gateway", etc.
+  string location_id = 3;
+  map<string, string> metadata = 4; // произвольные теги
+}
+
+message RegisterDeviceResponse {
+  string device_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+message UpdateDeviceStatusRequest {
+  string device_id = 1;
+  string status = 2;       // "online", "offline", "maintenance"
+}
+
+message UpdateDeviceStatusResponse {
+  bool success = 1;
+}
+
+message DeleteDeviceRequest {
+  string device_id = 1;
+}
+
+message DeleteDeviceResponse {
+  bool success = 1;
+}

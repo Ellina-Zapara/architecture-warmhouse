@@ -115,7 +115,7 @@ Project_template
 
 2. *Диаграммы компонентов по выделенным микросервисам*
 
-2.1. [Открыть Диаграмму компонентов Climat-service](docs/C4_MS/Component_Climate_service.png)
+2.1. [Открыть Диаграмму компонентов Climate-service](docs/C4_MS/Component_Climate_service.png)
 
 Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Climate_service.puml)
 
@@ -133,11 +133,11 @@ Project_template
 
 3. *Диаграмма кода (Code)*
 
-3.1. [Открыть Диаграмму кода climate-service](docs/C4_MS/Code_Diagram_Climat_service.png)
+3.1. [Открыть Диаграмму кода Climate-service](docs/C4_MS/Code_Diagram_Climate_service.png)
 
-Код диаграммы PlantUML [здесь](docs/C4_MS/Code_Diagram_Climat_service.puml)
+Код диаграммы PlantUML [здесь](docs/C4_MS/Code_Diagram_Climate_service.puml)
 
-3.2. [Открыть Диаграмму кода device-gateway-service](docs/C4_MS/Code_Diagram_Device_Manage.png)
+3.2. [Открыть Диаграмму кода Device-Gateway-service](docs/C4_MS/Code_Diagram_Device_Manage.png)
 
 Код диаграммы PlantUML [здесь](docs/C4_MS/Code_Diagram_Device_Manage.puml)
 
@@ -170,11 +170,94 @@ Project_template
 
 
 ## Задание 4. Создание и документирование API
-1. Тип API
-Укажите, какой тип API вы будете использовать для взаимодействия микросервисов. Объясните своё решение.
 
-2. Документация API
-Здесь приложите ссылки на документацию API для микросервисов, которые вы спроектировали в первой части проектной работы. Для документирования используйте Swagger/OpenAPI или AsyncAPI.
+1.* Тип API
+
+Если проанализировать диаграмму контейнеров, то видно, что в проекте используются несколько протоколов обмена сообщениями для синхронного и асинхронного 
+
+взаимодействия. Сценарий следующий - клиент(пользователь и администратор)взаимодействуют с веб или мобильным приложением по REST API.
+
+Например, клиент (веб/мобильный) делает HTTP-запрос к API Gateway:
+GET /api/climate/current?location_id=loc-123 с заголовком Authorization: Bearer <JWT>.
+
+JWT - JSON Web Token — это токен в формате header.payload.signature, который содержит утверждения (claims) о пользователе:
+кто он, какие у него роли, когда токен истекает.
+
+API Gateway валидирует JWT. Далее Извлекает sub, роли.
+
+Формирует gRPC-вызов к ClimateService.GetCurrentTemperature.
+
+Добавляет в gRPC metadata: x-user-id: <sub>, x-roles: <roles>, x-request-id: <uuid>.
+
+ClimateService (gRPC сервер): читает metadata, получает x-user-id.
+
+Выполняет бизнес-логику (проверяет права, если нужно) и возвращает строго типизированный ответ (структура из .proto).
+
+В данном сценарии .proto даёт:
+
+- Единый источник истины для контрактов между Gateway и сервисами.
+- Быструю и компактную сериализацию для частых внутренних вызовов.
+- Нативную поддержку стриминга (например, StreamReadings для потока данных с датчиков).
+- Автоматическую генерацию кода и защиту от ошибок типов.
+
+Связка API Gateway (валидация JWT) + gRPC (внутренняя маршрутизация) — это отраслевой стандарт для микросервисов с высокими требованиями к
+производительности и безопасности. Gateway снимает с сервисов сквозную ответственность
+(аутентификация, TLS, rate limiting), 
+а gRPC обеспечивает быстрый и строго контрактированный обмен между сервисами внутри кластера. 
+Внутренние вызовы выполняются часто и в больших объёмах. Бинарный Protobuf и HTTP/2 дают значительный 
+прирост скорости и снижение нагрузки по сравнению с JSON/HTTP 1.1
+ 
+Рекомендованные лучшие практики легли в данное архитектурное решение. Материал был проанализирован с помощью Алиса AI, 
+
+скорректирован автором работы по необходимым сценариям.
+
+В результате анализа будущей архитектуры и взаимосвязей микросервисов и внешних факторов с системой определены
+
+основные типы протоколов и контракты.
+
+Сервис	Протокол	Формат данных	Основное преимущество
+ClimateService	gRPC	Protobuf	Высокая производительность, стриминг показаний
+DeviceService	gRPC	Protobuf	Строгая типизация, генерация кода
+API Gateway	HTTP	JSON	Удобство для внешних клиентов, JWT-валидация
+Identity Provider	OAuth2/OIDC	JWT	Централизованная аутентификация, управление сессиями
+
+### Пять эндпоинтов, покрывающих все четыре микросервиса, проходят через API Gateway, который валидирует JWT и маршрутизирует в целевой сервис по gRPC.
+
+  
+    Метод Путь                               Сервис                     Назначение
+1   POST  /api/climate/heating               Climate                    Включить/выключить отопление, задать целевую температуру
+2   GET   /api/climate/temperature/{houseId} Climate                    Получить текущую температуру и историю
+3   POST  /api/home/lights/{lightId}/control Home Automation            Включить/выключить свет, изменить яркость
+4   POST  /api/home/gates/{gateId}/control   Home Automation            Открыть/закрыть/остановить ворота
+5   GET   /api/security/alerts               Security & Monitoring      Получить список алертов с фильтрами
+
+
+### Шесть методов AsyncAPI, используемые в асинхронном взаимодействии между микросервисами
+
+Топик    		 Publisher        Subscribers                                  Событие                        Назначение
+sensor.readings  Device Gateway   Climate, Security                          SensorReading                   Сырые показания датчиков
+device.status    Device Gateway   Home Automation, Security               DeviceStatusChanged                Изменение online/offline/error
+device.registry  Device Gateway   Climate, Home Automation, Security       DeviceRegistered                  Регистрация нового устройства
+climate.events   Climate          Security                                HeatingStateChanged                Изменение режима отопления
+home.events      Home Automation  Home Automation (self), Security        LightingChanged, GateStateChanged  Изменение света и ворот
+security.alerts  Security         Webhook notifier                        AlertRaised, AlertResolved         Аварийные события и их закрытие
+
+
+### Контракты .proto
+
+Например,микросервисы Climate_Service (температура, локации) и Device_Gateway_Service (управление датчиками). 
+
+В одном .proto можно описать оба контракта — это нормально для внутренних микросервисов.
+
+
+2.*Документация API
+
+[Спецификация API](docs/API/API_Smart_house.yaml)
+
+[Спецификация AsyncAPI](docs/API/AsyncAPI_Smart_House.yaml")
+
+[Спецификация proto](docs/API/proto.protobuf)
+
 
 Задание 5. Работа с docker и docker-compose
 Перейдите в apps.
