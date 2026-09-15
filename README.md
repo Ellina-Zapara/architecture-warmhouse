@@ -103,7 +103,7 @@ Project_template
 
 * Визуализация контекста системы — диаграмма С4
 
-[Диаграмма контекта монолитного приложения]("\docs\Monolit\Context_ASIS.png")
+[Диаграмма контекта монолитного приложения]("/docs/C4_MS/Container_TOBE.png")
 
 Код диаграммы PluntUML [здесь]("\docs\Monolit\Context_ASIS.puml") 
 
