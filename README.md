@@ -119,9 +119,9 @@ Project_template
 
 Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Climate_service.puml)
 
-2.2. [Открыть Диаграмму компонентов Home-automation-service](docs/C4_MS/Component_Home_Automation Service.png)
+2.2. [Открыть Диаграмму компонентов Home-automation-service](docs/C4_MS/Component_Home_Automation_Service.png)
 
-Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Home_Automation Service.puml)
+Код диаграммы PlantUML [здесь](docs/C4_MS/Component_Home_Automation_Service.puml)
 
 2.3. [Открыть Диаграмму компонентов Monitoring-Security-service](docs/C4_MS/Component_Monitoring_Security.png)
 
