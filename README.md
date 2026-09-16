@@ -171,7 +171,7 @@ Project_template
 
 ## Задание 4. Создание и документирование API
 
-1.* Тип API
+1. Тип API
 
 Если проанализировать диаграмму контейнеров, то видно, что в проекте используются несколько протоколов обмена сообщениями для синхронного и асинхронного 
 
@@ -223,24 +223,35 @@ Identity Provider	OAuth2/OIDC	JWT	Централизованная аутент�
 
 ### Пять эндпоинтов, покрывающих все четыре микросервиса, проходят через API Gateway, который валидирует JWT и маршрутизирует в целевой сервис по gRPC.
 
-  
-    Метод Путь                               Сервис                     Назначение
-1   POST  /api/climate/heating               Climate                    Включить/выключить отопление, задать целевую температуру
-2   GET   /api/climate/temperature/{houseId} Climate                    Получить текущую температуру и историю
-3   POST  /api/home/lights/{lightId}/control Home Automation            Включить/выключить свет, изменить яркость
-4   POST  /api/home/gates/{gateId}/control   Home Automation            Открыть/закрыть/остановить ворота
-5   GET   /api/security/alerts               Security & Monitoring      Получить список алертов с фильтрами
+ 
+| №  |  Метод |  Путь |  Сервис  |  Назначение|
+
+|1|  POST| /api/climate/heating              | Climate|             Включить/выключить отопление, задать целевую температуру|
+
+|2|  GET|  /api/climate/temperature/{houseId}| Climate|             Получить текущую температуру и историю|
+
+|3|  POST  /api/home/lights/{lightId}/control| Home Automation|     Включить/выключить свет, изменить яркость|
+
+|4|  POST  /api/home/gates/{gateId}/control|   Home Automation|     Открыть/закрыть/остановить ворота|
+
+|5|  GET   /api/security/alerts|             Security & Monitoring|Получить список алертов с фильтрами|
 
 
 ### Шесть методов AsyncAPI, используемые в асинхронном взаимодействии между микросервисами
 
-Топик    		 Publisher        Subscribers                                  Событие                        Назначение
-sensor.readings  Device Gateway   Climate, Security                          SensorReading                   Сырые показания датчиков
-device.status    Device Gateway   Home Automation, Security               DeviceStatusChanged                Изменение online/offline/error
-device.registry  Device Gateway   Climate, Home Automation, Security       DeviceRegistered                  Регистрация нового устройства
-climate.events   Climate          Security                                HeatingStateChanged                Изменение режима отопления
-home.events      Home Automation  Home Automation (self), Security        LightingChanged, GateStateChanged  Изменение света и ворот
-security.alerts  Security         Webhook notifier                        AlertRaised, AlertResolved         Аварийные события и их закрытие
+|Топик|    		 Publisher|        Subscribers|                                  Событие|                        Назначение|
+
+|sensor.readings|  Device Gateway|   Climate, Security|                       SensorReading|                   Сырые показания датчиков|
+
+|device.status|    Device Gateway|   Home Automation, Security|               DeviceStatusChanged|             Изменение online/offline/error|
+
+|device.registry|  Device Gateway|   Climate, Home Automation, Security|      DeviceRegistered|                Регистрация нового устройства|
+
+|climate.events|   Climate|          Security|                                HeatingStateChanged|             Изменение режима отопления|
+
+|home.events|      Home Automation|  Home Automation (self), Security|        LightingChanged, GateStateChanged|  Изменение света и ворот|
+
+|security.alerts|  Security|         Webhook notifier|                        AlertRaised, AlertResolved|   Аварийные события и их закрытие|
 
 
 ### Контракты .proto
@@ -249,8 +260,25 @@ security.alerts  Security         Webhook notifier                        AlertR
 
 В одном .proto можно описать оба контракта — это нормально для внутренних микросервисов.
 
+## Маппинг эндпоинтов REST API на внутренний протокол proto 
 
-2.*Документация API
+REST‑эндпоинты мапятся на gRPC‑RPC
+
+|REST|(внешний API)|	gRPC RPC (внутренний вызов)|	Сервис
+
+|POST| /api/climate/heating|	rpc SetHeatingControl(SetHeatingControlRequest) returns (SetHeatingControlResponse)|	ClimateService|
+
+|GET| /api/climate/temperature/{houseId}|	rpc GetCurrentTemperature(GetCurrentTemperatureRequest) returns (GetCurrentTemperatureResponse)|	ClimateService|
+
+|POST| /api/home/lights/{lightId}/control|	rpc ControlLight(ControlLightRequest) returns (ControlLightResponse)|	HomeAutomationService|
+
+|POST| /api/home/gates/{gateId}/control|	rpc ControlGate(ControlGateRequest) returns (ControlGateResponse)|	HomeAutomationService|
+
+|GET| /api/security/alerts|	rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse)|	SecurityService|
+
+
+
+2.Документация API
 
 [Спецификация API](docs/API/API_Smart_house.yaml)
 
