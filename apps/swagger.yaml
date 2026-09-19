@@ -1,0 +1,129 @@
+openapi: 3.0.3
+info:
+  title: SmartHome API
+  version: 1.0.0
+  description: API for managing temperature sensors.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+paths:
+  /api/sensors:
+    post:
+      summary: Register a new sensor
+      operationId: createSensor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SensorCreate'
+            examples:
+              sensor:
+                value:
+                  device_id: sensor-001
+                  type: sensor
+                  location: Living Room
+      responses:
+        '201':
+          description: Sensor created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sensor'
+              example:
+                id: 1
+                device_id: sensor-001
+                type: sensor
+                location: Living Room
+                created_at: "2026-09-19T18:50:00Z"
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "device_id and location are required"
+        '409':
+          description: Sensor with this device_id already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Sensor with this device_id already exists"
+    get:
+      summary: Get all sensors
+      operationId: getAllSensors
+      responses:
+        '200':
+          description: List of all sensors ordered by id
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sensor'
+              example:
+                - id: 1
+                  device_id: sensor-001
+                  type: sensor
+                  location: Living Room
+                  created_at: "2026-09-19T18:50:00Z"
+                - id: 2
+                  device_id: sensor-002
+                  type: motion
+                  location: Kitchen
+                  created_at: "2026-09-19T18:51:00Z"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    SensorCreate:
+      type: object
+      required:
+        - device_id
+        - location
+      properties:
+        device_id:
+          type: string
+          description: Unique sensor identifier
+          example: sensor-001
+        type:
+          type: string
+          description: Sensor type (defaults to "sensor")
+          default: sensor
+          example: sensor
+        location:
+          type: string
+          description: Physical location of the sensor
+          example: Living Room
+    Sensor:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        device_id:
+          type: string
+          example: sensor-001
+        type:
+          type: string
+          example: sensor
+        location:
+          type: string
+          example: Living Room
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-09-19T18:50:00Z"
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "device_id and location are required"
