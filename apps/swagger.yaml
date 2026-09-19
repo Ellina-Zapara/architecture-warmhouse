@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: SmartHome API
+  description: |
+    API умного дома для управления сенсорами и получения температур.
+    
+    ## Эндпоинты
+    - **GET /temperature** — температура по локации (рандом)
+    - **GET /api/sensors** — список всех зарегистрированных сенсоров
+    - **GET /temperaturebysensors** — температура по всем сенсорам (рандом)
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Локальный сервер
+
+paths:
+  /temperature:
+    get:
+      tags:
+        - Temperature
+      summary: Температура по локации
+      description: Возвращает случайную температуру для указанной локации.
+      parameters:
+        - name: location
+          in: query
+          description: Название локации сенсора.
+          required: false
+          schema:
+            type: string
+            example: "Living Room"
+        - name: sensorId
+          in: query
+          description: ID сенсора (целое число). Если передан, location берётся из маппинга.
+          required: false
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Успешный ответ с температурой.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemperatureResponse'
+              example:
+                location: "Living Room"
+                sensorId: 1
+                temperature: 18.9
+        '400':
+          description: Неверный формат sensorId.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "sensorId must be an integer"
+
+  /api/sensors:
+    get:
+      tags:
+        - Sensors
+      summary: Список всех сенсоров
+      description: Возвращает список всех зарегистрированных устройств/сенсоров из базы данных.
+      responses:
+        '200':
+          description: Список сенсоров.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sensor'
+              example:
+                - id: 1
+                  device_id: "dev-001"
+                  type: "sensor"
+                  location: "Living Room"
+                  created_at: "Sat, 19 Sep 2026 15:30:38 GMT"
+                - id: 2
+                  device_id: "dev-002"
+                  type: "sensor"
+                  location: "Bedroom"
+                  created_at: "Sat, 19 Sep 2026 15:30:38 GMT"
+                - id: 3
+                  device_id: "dev-003"
+                  type: "gateway"
+                  location: "Kitchen"
+                  created_at: "Sat, 19 Sep 2026 15:30:38 GMT"
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /temperaturebysensors:
+    get:
+      tags:
+        - Temperature
+      summary: Температура по всем сенсорам
+      description: |
+        Возвращает случайную температуру для каждого зарегистрированного сенсора.
+        Берёт все записи из таблицы sensors и генерирует температуру для каждой.
+      responses:
+        '200':
+          description: Список сенсоров со случайными температурами.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sensors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SensorTemperature'
+              example:
+                sensors:
+                  - id: 1
+                    device_id: "dev-001"
+                    location: "Living Room"
+                    temperature: 24.7
+                  - id: 2
+                    device_id: "dev-002"
+                    location: "Bedroom"
+                    temperature: 23.6
+                  - id: 3
+                    device_id: "dev-003"
+                    location: "Kitchen"
+                    temperature: 34.3
+        '500':
+          description: Внутренняя ошибка сервера.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    TemperatureResponse:
+      type: object
+      properties:
+        location:
+          type: string
+          description: Локация сенсора.
+          example: "Living Room"
+        sensorId:
+          type: integer
+          description: ID сенсора.
+          example: 1
+        temperature:
+          type: number
+          format: float
+          description: Случайная температура (от 18.0 до 35.0).
+          example: 18.9
+
+    Sensor:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        device_id:
+          type: string
+          example: "dev-001"
+        type:
+          type: string
+          example: "sensor"
+        location:
+          type: string
+          example: "Living Room"
+        created_at:
+          type: string
+          format: date-time
+          example: "Sat, 19 Sep 2026 15:30:38 GMT"
+
+    SensorTemperature:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        device_id:
+          type: string
+          example: "dev-001"
+        location:
+          type: string
+          example: "Living Room"
+        temperature:
+          type: number
+          format: float
+          description: Случайная температура (от 18.0 до 35.0).
+          example: 24.7
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "sensorId must be an integer"

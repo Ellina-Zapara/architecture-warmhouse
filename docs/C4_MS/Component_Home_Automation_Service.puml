@@ -1,0 +1,55 @@
+@startuml
+title Home Automation Service — C4 Component Diagram
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Container_Boundary(home_auto, "Home Automation") {
+
+    Component(grpc_api, "Home gRPC API", "Go + gRPC", "Приём команд: TurnLightOn/Off, SetBrightness, OpenGate, CloseGate, GetState")
+
+    Component(light_ctrl, "Light Controller", "Go", "Управление лампами: вкл/выкл, яркость, группы")
+
+    Component(gate_ctrl, "Gate Controller", "Go", "Управление воротами: открыть/закрыть/стоп, контроль позиции, таймаут безопасности")
+
+    Component(automation, "Automation Engine", "Go", "Сценарии: «свет при открытии ворот», «выключить всё ночью». Подписка на GateStateChanged, DeviceStatusChanged")
+
+    Component(scheduler, "Schedule Manager", "Go + cron", "Таймеры света и ворот по расписанию")
+
+    Component(event_handler, "Event Handler", "Go + Kafka consumer", "Consume: DeviceStatusChanged, GateStateChanged. Маршрутизация в Automation Engine")
+
+    Component(event_pub, "Event Publisher", "Go + Kafka producer", "Produce: LightingChanged, GateStateChanged")
+
+    Component(repo, "Home Repository", "Go + pgx", "Чтение/запись: lights, gates, light_states, gate_positions, automation_rules, schedules")
+}
+
+ContainerDb(pg, "db_home", "PostgreSQL", "lights, gates, light_states, gate_positions, automation_rules, schedules")
+Container(broker, "Message Broker", "Kafka", "")
+Container(device_gw, "Device Gateway", "Go", "")
+
+Rel(grpc_api, light_ctrl, "Команды света")
+Rel(grpc_api, gate_ctrl, "Команды ворот")
+Rel(grpc_api, repo, "Запрос текущих состояний")
+
+Rel(light_ctrl, repo, "Чтение/запись состояния ламп")
+Rel(light_ctrl, event_pub, "Публикует LightingChanged")
+Rel(light_ctrl, device_gw, "SendDeviceCommand (gRPC sync)")
+
+Rel(gate_ctrl, repo, "Чтение/запись позиции ворот")
+Rel(gate_ctrl, event_pub, "Публикует GateStateChanged")
+Rel(gate_ctrl, device_gw, "SendDeviceCommand (gRPC sync)")
+
+Rel(automation, light_ctrl, "Активация сценария (вкл свет)")
+Rel(automation, repo, "Чтение automation_rules")
+
+Rel(scheduler, light_ctrl, "Таймер вкл/выкл")
+Rel(scheduler, gate_ctrl, "Таймер закрытия ворот")
+Rel(scheduler, repo, "Чтение schedules")
+
+Rel(event_handler, automation, "GateStateChanged → триггер сценария")
+Rel(event_handler, broker, "Consume: device.status, home.events")
+Rel(event_pub, broker, "Produce: home.events")
+Rel(repo, pg, "SQL (pgx)")
+
+@enduml

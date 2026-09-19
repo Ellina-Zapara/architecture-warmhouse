@@ -1,0 +1,700 @@
+openapi: 3.0.3
+info:
+  title: Умный дом GO — REST API
+  version: 1.0.0
+  description: |
+    API для управления отоплением, освещением, воротами
+    и мониторингом аварий. Все запросы проходят через
+    API Gateway с JWT-аутентификацией.
+  contact:
+    name: Smart Home GO Team
+
+servers:
+  - url: https://api.smarthome-go.example.com
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+
+# ── Глобальные security ──
+security:
+  - BearerAuth: []
+
+paths:
+  # ════════════════════════════════════════════════════
+  # 1. POST /api/climate/heating
+  # ════════════════════════════════════════════════════
+  /api/climate/heating:
+    post:
+      tags: [Climate]
+      summary: Установить режим отопления
+      description: |
+        Включает/выключает отопление, задаёт целевую температуру.
+        Синхронный вызов: API Gateway → Climate → Device Gateway → Third-Party API.
+        Climate сравнивает целевую и фактическую температуру и
+        отправляет команду нагрева через Device Gateway.
+      operationId: setHeatingMode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeatingRequest'
+            examples:
+              turn_on_auto:
+                summary: Включить авто-режим
+                value:
+                  house_id: "550e8400-e29b-41d4-a716-446655440000"
+                  mode: "auto"
+                  target_temp: 22.0
+              turn_off:
+                summary: Выключить отопление
+                value:
+                  house_id: "550e8400-e29b-41d4-a716-446655440000"
+                  mode: "off"
+              manual:
+                summary: Ручной режим с точной температурой
+                value:
+                  house_id: "550e8400-e29b-41d4-a716-446655440000"
+                  mode: "manual"
+                  target_temp: 25.5
+      responses:
+        '200':
+          description: Режим установлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeatingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Дом не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Device Gateway или Third-Party API недоступны
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════
+  # 2. GET /api/climate/temperature/{houseId}
+  # ════════════════════════════════════════════════════
+  /api/climate/temperature/{houseId}:
+    get:
+      tags: [Climate]
+      summary: Получить текущую температуру и историю
+      description: |
+        Возвращает текущую температуру в доме, целевую температуру,
+        режим отопления и историю показаний за указанный период.
+      operationId: getTemperature
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Идентификатор дома
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Начало периода (по умолчанию — 24 часа назад)
+          example: "2026-09-13T00:00:00+03:00"
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Конец периода (по умолчанию — сейчас)
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [raw, hourly, daily]
+            default: hourly
+          description: Агрегация истории
+      responses:
+        '200':
+          description: Текущая температура и история
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemperatureResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Дом не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════
+  # 3. POST /api/home/lights/{lightId}/control
+  # ════════════════════════════════════════════════════
+  /api/home/lights/{lightId}/control:
+    post:
+      tags: [Home Automation]
+      summary: Управление освещением
+      description: |
+        Включение/выключение лампы, изменение яркости или цвета.
+        Синхронный вызов: API Gateway → Home Automation → Device Gateway → Third-Party API.
+        После выполнения публикуется событие LightingChanged в Kafka.
+      operationId: controlLight
+      parameters:
+        - name: lightId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Идентификатор лампы
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LightControlRequest'
+            examples:
+              turn_on:
+                summary: Включить
+                value:
+                  action: "turn_on"
+              set_brightness:
+                summary: Изменить яркость
+                value:
+                  action: "set_brightness"
+                  brightness: 60
+              set_color:
+                summary: Изменить цвет
+                value:
+                  action: "set_color"
+                  color: "#FF5733"
+              turn_off:
+                summary: Выключить
+                value:
+                  action: "turn_off"
+      responses:
+        '200':
+          description: Команда выполнена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LightControlResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Лампа не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Устройство недоступно (offline)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════
+  # 4. POST /api/home/gates/{gateId}/control
+  # ════════════════════════════════════════════════════
+  /api/home/gates/{gateId}/control:
+    post:
+      tags: [Home Automation]
+      summary: Управление воротами
+      description: |
+        Открытие, закрытие или остановка ворот.
+        Синхронный вызов: API Gateway → Home Automation → Device Gateway → Third-Party API.
+        После выполнения публикуется событие GateStateChanged в Kafka.
+        Автоматизация (сценарий «свет при открытии ворот») срабатывает
+        асинхронно по подписке на это событие.
+      operationId: controlGate
+      parameters:
+        - name: gateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Идентификатор ворот
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GateControlRequest'
+            examples:
+              open:
+                summary: Открыть
+                value:
+                  action: "open"
+              close:
+                summary: Закрыть
+                value:
+                  action: "close"
+              stop:
+                summary: Остановить
+                value:
+                  action: "stop"
+      responses:
+        '200':
+          description: Команда выполнена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GateControlResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Ворота не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Устройство недоступно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════
+  # 5. GET /api/security/alerts
+  # ════════════════════════════════════════════════════
+  /api/security/alerts:
+    get:
+      tags: [Security & Monitoring]
+      summary: Получить список алертов
+      description: |
+        Возвращает аварийные события с фильтрами по дому,
+        серьёзности и статусу. Поддерживает пагинацию.
+      operationId: getAlerts
+      parameters:
+        - name: house_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Фильтр по дому (для владельца — автоматически из JWT)
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, acknowledged, resolved]
+          description: Фильтр по статусу
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [info, warning, critical]
+          description: Фильтр по серьёзности
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Список алертов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertsResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ════════════════════════════════════════════════════
+  # 5b. PATCH /api/security/alerts/{alertId}
+  # ════════════════════════════════════════════════════
+  /api/security/alerts/{alertId}:
+    patch:
+      tags: [Security & Monitoring]
+      summary: Изменить статус алерта
+      description: |
+        Администратор подтверждает (acknowledge) или закрывает (resolve) алерт.
+        При resolve публикуется событие AlertResolved в Kafka.
+      operationId: updateAlert
+      parameters:
+        - name: alertId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertUpdateRequest'
+            examples:
+              acknowledge:
+                summary: Подтвердить
+                value:
+                  status: "acknowledged"
+              resolve:
+                summary: Закрыть
+                value:
+                  status: "resolved"
+                  resolution_note: "Заменил датчик, проверил показания"
+      responses:
+        '200':
+          description: Статус алерта обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Алерт не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+# ══════════════════════════════════════════════════════════════
+# Components
+# ══════════════════════════════════════════════════════════════
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT-токен, выданный Identity Provider (Keycloak).
+        Payload содержит: user_id, role (owner|admin), house_ids[].
+
+  # ── Повторяющиеся ответы ──
+  responses:
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Доступ запрещён
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "FORBIDDEN"
+            message: "У вас нет доступа к этому дому"
+            request_id: "req-abc123"
+
+  # ── Схемы ──
+  schemas:
+
+    # ── Универсальная ошибка ──
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Машинный код ошибки
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          description: Человекочитаемое сообщение
+          example: "Поле target_temp обязательно при mode=auto"
+        request_id:
+          type: string
+          description: Идентификатор запроса для трассировки
+        details:
+          type: object
+          additionalProperties: true
+          description: Дополнительные детали ошибки
+
+    # ── 1. Heating ──
+    HeatingRequest:
+      type: object
+      required: [house_id, mode]
+      properties:
+        house_id:
+          type: string
+          format: uuid
+          description: Идентификатор дома
+        mode:
+          type: string
+          enum: [off, manual, auto, economy]
+          description: |
+            Режим отопления:
+            * `off` — выключено
+            * `manual` — постоянная целевая температура
+            * `auto` — автоматическое поддержание
+            * `economy` — пониженная температура
+        target_temp:
+          type: number
+          format: float
+          minimum: 5
+          maximum: 35
+          description: Целевая температура (обязательна для manual, auto, economy)
+          example: 22.0
+
+    HeatingResponse:
+      type: object
+      required: [house_id, mode, is_active, success]
+      properties:
+        house_id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [off, manual, auto, economy]
+        target_temp:
+          type: number
+          format: float
+        current_temp:
+          type: number
+          format: float
+          description: Фактическая температура на момент запроса
+        is_active:
+          type: boolean
+          description: Активен ли нагрев прямо сейчас
+        success:
+          type: boolean
+        device_command_id:
+          type: string
+          description: ID команды, отправленной в Device Gateway
+        timestamp:
+          type: string
+          format: date-time
+
+    # ── 2. Temperature ──
+    TemperatureResponse:
+      type: object
+      required: [house_id, current_temp, mode]
+      properties:
+        house_id:
+          type: string
+          format: uuid
+        current_temp:
+          type: number
+          format: float
+          description: Последнее показание с датчика
+          example: 21.3
+        target_temp:
+          type: number
+          format: float
+          nullable: true
+        mode:
+          type: string
+          enum: [off, manual, auto, economy]
+        is_active:
+          type: boolean
+        device_id:
+          type: string
+          format: uuid
+          description: ID датчика, от которого получено последнее показание
+        last_reading_at:
+          type: string
+          format: date-time
+        history:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemperatureReading'
+
+    TemperatureReading:
+      type: object
+      required: [value, recorded_at]
+      properties:
+        value:
+          type: number
+          format: float
+        recorded_at:
+          type: string
+          format: date-time
+        device_id:
+          type: string
+          format: uuid
+
+    # ── 3. Light Control ──
+    LightControlRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [turn_on, turn_off, set_brightness, set_color]
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Яркость (0-100), только для action=set_brightness
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: HEX-цвет, только для action=set_color
+          example: "#FF5733"
+
+    LightControlResponse:
+      type: object
+      required: [light_id, action, success]
+      properties:
+        light_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        is_on:
+          type: boolean
+        brightness:
+          type: integer
+        color:
+          type: string
+        success:
+          type: boolean
+        device_command_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # ── 4. Gate Control ──
+    GateControlRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [open, close, stop]
+          description: |
+            Команда воротам:
+            * `open` — открыть
+            * `close` — закрыть
+            * `stop` — остановить движение
+
+    GateControlResponse:
+      type: object
+      required: [gate_id, action, position, success]
+      properties:
+        gate_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        position:
+          type: string
+          enum: [open, closed, opening, closing, stopped]
+          description: Текущая позиция после команды
+        success:
+          type: boolean
+        device_command_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # ── 5. Alerts ──
+    AlertsResponse:
+      type: object
+      required: [alerts, total, limit, offset]
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertResponse'
+        total:
+          type: integer
+          description: Всего алертов по фильтру
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    AlertResponse:
+      type: object
+      required: [alert_id, house_id, severity, status, message, raised_at]
+      properties:
+        alert_id:
+          type: string
+          format: uuid
+        rule_id:
+          type: string
+          format: uuid
+          nullable: true
+        house_id:
+          type: string
+          format: uuid
+        device_id:
+          type: string
+          format: uuid
+          nullable: true
+        source_type:
+          type: string
+          enum: [temperature, device_status, gate_timeout, motion_detected]
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        status:
+          type: string
+          enum: [open, acknowledged, resolved]
+        message:
+          type: string
+          example: "Temperature 35.2°C exceeds threshold 30°C"
+        details:
+          type: object
+          additionalProperties: true
+          example:
+            value: 35.2
+            threshold: 30
+        raised_at:
+          type: string
+          format: date-time
+        acknowledged_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolution_note:
+          type: string
+          nullable: true
+
+    AlertUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [acknowledged, resolved]
+        resolution_note:
+          type: string
+          description: Обязателен при status=resolved

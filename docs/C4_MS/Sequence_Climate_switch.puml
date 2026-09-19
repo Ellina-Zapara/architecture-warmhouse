@@ -1,0 +1,79 @@
+@startuml
+title Sequence: Пользователь включает отопление (sync flow)
+
+actor "Пользователь" as user
+participant "Веб-интерфейс" as web
+participant "API Gateway" as gw
+participant "Climate Service" as climate
+participant "Device Gateway" as dgw
+participant "Connection Manager" as cm
+participant "Third-Party API" as api
+participant "Kafka" as broker
+participant "db_climate" as db_c
+participant "db_device" as db_d
+
+user -> web: Нажать «Включить отопление»
+web -> gw: POST /api/climate/heating\n{house_id, mode: "auto", target_temp: 22}
+activate gw
+
+gw -> gw: Валидация JWT-токена
+gw -> climate: gRPC SetHeatingMode(house_id, AUTO, 22.0)
+activate climate
+
+climate -> db_c: SELECT * FROM heating_modes WHERE house_id = ?
+activate db_c
+db_c --> climate: Текущее состояние: OFF, current_temp=18.5
+deactivate db_c
+
+climate -> db_c: UPDATE heating_modes SET mode=AUTO, target_temp=22, is_active=true
+activate db_c
+db_c --> climate: OK
+deactivate db_c
+
+climate -> dgw: gRPC SendDeviceCommand(device_id, SET_TEMPERATURE, {temp:22})
+activate dgw
+
+dgw -> dgw: Command Router: валидация, определение типа = TEMPERATURE_SENSOR
+dgw -> cm: SendWithRetry(command)
+activate cm
+
+cm -> cm: Circuit breaker: состояние CLOSED — пропустить
+cm -> api: POST /api/devices/{id}/command\n{"command":"set_temperature","value":22}
+activate api
+
+api -> api: Команда датчику
+api --> cm: 200 OK {"status":"accepted","request_id":"ext-123"}
+deactivate api
+
+cm --> dgw: CommandResult{Success: true, ExternalRequestID: "ext-123"}
+deactivate cm
+
+dgw -> db_d: INSERT INTO device_log (device_id, command, result, timestamp)
+activate db_d
+db_d --> dgw: OK
+deactivate db_d
+
+dgw --> climate: CommandResult{Success: true}
+deactivate dgw
+
+climate -> broker: Produce HeatingStateChanged{house_id, mode:AUTO, active:true}
+activate broker
+broker --> climate: ACK
+deactivate broker
+
+climate --> gw: SetHeatingModeResponse{success: true}
+deactivate climate
+
+gw --> web: 200 OK {"status":"heating_on", "target_temp": 22}
+deactivate gw
+
+web --> user: «Отопление включено, целевая температура 22°C»
+
+note over broker, security
+  Асинхронно:
+  Security & Monitoring подписан на
+  topic climate.events → фиксирует изменение
+  в event_log, проверяет правила.
+end note
+
+@enduml

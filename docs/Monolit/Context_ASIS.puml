@@ -1,0 +1,32 @@
+@startuml
+title Управление отоплением — Контекстная диаграмма (Context diagram)
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Person(user, "Пользователь", "Владелец дома")
+Person(admin, "Administrator", "Управляет настройками системы, контролирует аварии")
+
+System(HouseSystem, "Умный дом GO", "Монолит на Go: управление отоплением, мониторинг температуры, доступ")
+
+System_Ext(api, "Third-Party API", "Посредник между сервером и датчиками, HTTP/JSON")
+System_Ext(Sensor1, "Датчик 1", "Датчик температуры в доме")
+System_Ext(Sensor2, "Датчик 2", "Датчик температуры в доме")
+System_Ext(SensorN, "Датчик N", "Датчик температуры в доме")
+System_Ext(Database, "PostgreSQL", "Хранение настроек, показаний, событий, pgx TCP+TLS")
+
+Rel(user, HouseSystem, "Включение/выключение отопления, просмотр температуры (веб-интерфейс)")
+Rel(admin, HouseSystem, "Установка температурного режима, контроль аварий")
+Rel(HouseSystem, api, "Команды датчикам, запрос показаний (HTTP/JSON)")
+Rel(HouseSystem, Database, "Чтение/запись настроек, событий, показаний (pgx, TCP+TLS)")
+
+Rel(api, Sensor1, "Измерение температуры, команды (HTTP/JSON)")
+Rel(api, Sensor2, "Измерение температуры, команды (HTTP/JSON)")
+Rel(api, SensorN, "Измерение температуры, команды (HTTP/JSON)")
+
+Rel(Sensor1, api, "Регистрация, подтверждение температуры (HTTP/JSON)")
+Rel(Sensor2, api, "Регистрация, подтверждение температуры (HTTP/JSON)")
+Rel(SensorN, api, "Регистрация, подтверждение температуры (HTTP/JSON)")
+
+@enduml

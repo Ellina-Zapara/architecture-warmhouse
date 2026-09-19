@@ -1,0 +1,53 @@
+@startuml
+title Device Gateway Service — C4 Component Diagram
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Container_Boundary(device_gw, "Device Gateway") {
+
+    Component(grpc_api, "Device gRPC API", "Go + gRPC", "Приём команд от Climate, Home Automation, Security")
+
+    Component(cmd_router, "Command Router", "Go", "Маршрутизация команд по типу устройства, валидация payload")
+
+    Component(device_registry, "Device Registry", "Go", "Регистрация новых устройств, присвоение ID, обновление метаданных")
+
+    Component(conn_manager, "Connection Manager", "Go", "Управление соединениями с Third-Party API, ретраи, таймауты, circuit breaker")
+
+    Component(status_cache, "Status Cache", "Go + Redis", "Кэш текущих статусов устройств, TTL 30s, fallback к БД")
+
+    Component(event_publisher, "Event Publisher", "Go + Kafka producer", "Публикация событий: SensorReading, DeviceStatusChanged, DeviceRegistered")
+
+    Component(device_repo, "Device Repository", "Go + pgx", "Чтение/запись таблиц: devices, device_types, device_log")
+
+    Component(health_check, "Health Checker", "Go + cron", "Периодическая проверка доступности устройств через Third-Party API")
+}
+
+ContainerDb(pg, "db_device", "PostgreSQL", "devices, device_types, device_log")
+ContainerDb(redis, "redis_device", "Redis", "device:status:{id} (hash, TTL 30s)")
+Container(broker, "Message Broker", "Kafka", "")
+System_Ext(api, "Third-Party API", "HTTP/JSON")
+
+Rel(grpc_api, cmd_router, "Передаёт валидную команду")
+Rel(cmd_router, conn_manager, "Отправляет команду на API")
+Rel(cmd_router, status_cache, "Обновляет статус после команды")
+Rel(conn_manager, api, "HTTP/JSON запрос")
+Rel(api, conn_manager, "HTTP/JSON ответ")
+
+Rel(device_registry, device_repo, "Запись нового устройства")
+Rel(device_registry, event_publisher, "Публикует DeviceRegistered")
+Rel(device_registry, status_cache, "Кэширует начальный статус")
+
+Rel(conn_manager, event_publisher, "Публикует SensorReading, DeviceStatusChanged")
+Rel(status_cache, redis, "GET/SET device:status:{id}")
+Rel(status_cache, device_repo, "Fallback: чтение из БД при cache miss")
+Rel(device_repo, pg, "SQL запросы (pgx)")
+
+Rel(health_check, conn_manager, "Ping устройств")
+Rel(health_check, status_cache, "Обновляет статус")
+Rel(health_check, event_publisher, "Публикует DeviceStatusChanged при offline")
+
+Rel(event_publisher, broker, "Produce to topics: sensor.readings, device.status, device.registry")
+
+@enduml

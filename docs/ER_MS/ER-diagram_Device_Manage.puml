@@ -1,0 +1,83 @@
+@startuml
+title db_device — ER-диаграмма (Device Gateway)
+
+!define table(x) entity x << (T,#FFAAAA) >>
+!define pk(x) <b>PK</b> x
+
+table(device_types) {
+  pk(type_id) : UUID
+  --
+  name : VARCHAR(50) NOT NULL
+  code : VARCHAR(30) NOT NULL UNIQUE
+  -- TEMPERATURE_SENSOR, LIGHT_CONTROLLER,
+  -- GATE_CONTROLLER, CAMERA
+  supports_commands : BOOLEAN DEFAULT true
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(devices) {
+  pk(device_id) : UUID
+  --
+  external_id : VARCHAR(100) NOT NULL UNIQUE
+  type_id : UUID NOT NULL >> device_types
+  house_id : UUID NOT NULL
+  name : VARCHAR(200)
+  status : VARCHAR(20) NOT NULL DEFAULT 'offline'
+  -- online, offline, error, maintenance
+  last_value : DOUBLE PRECISION
+  last_value_unit : VARCHAR(10)
+  metadata : JSONB DEFAULT '{}'
+  -- {ip, firmware, model, location}
+  registered_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+  last_seen_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+}
+
+table(device_log) {
+  pk(log_id) : BIGSERIAL
+  --
+  device_id : UUID NOT NULL >> devices
+  event_type : VARCHAR(30) NOT NULL
+  -- command_sent, command_result, reading,
+  -- status_change, registration, ping
+  command : VARCHAR(50)
+  result : VARCHAR(20)
+  -- success, failure, timeout
+  value : DOUBLE PRECISION
+  external_request_id : VARCHAR(100)
+  error_message : TEXT
+  created_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+}
+
+table(house_device_bindings) {
+  pk(binding_id) : BIGSERIAL
+  --
+  device_id : UUID NOT NULL UNIQUE >> devices
+  house_id : UUID NOT NULL
+  room_name : VARCHAR(100)
+  -- «Гостиная», «Кухня», «Улица — ворота»
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+device_types ||--o{ devices : "type_id"
+devices ||--o{ device_log : "device_id"
+devices ||--|| house_device_bindings : "device_id"
+
+note bottom of devices
+  Статус обновляется:
+  1. После команды через API
+  2. Health Checker — cron каждые 60с
+  3. Callback от Third-Party API
+
+  Кэшируется в Redis:
+  device:status:{device_id}
+  TTL 30s
+end note
+
+note right of device_log
+  Append-only, не обновляется.
+  Partition by month
+  для производительности.
+end note
+
+@enduml

@@ -1,0 +1,158 @@
+@startuml
+title Device Gateway — Class Diagram (ключевые типы)
+
+skinparam classAttributeIconSize 0
+
+package domain {
+    class Device {
+        +ID: DeviceID
+        +Type: DeviceType
+        +HouseID: HouseID
+        +Status: DeviceStatus
+        +RegisteredAt: time.Time
+        +LastSeenAt: time.Time
+        +Metadata: map[string]string
+    }
+
+    class DeviceID <<value object>> {
+        +value: string
+    }
+
+    class DeviceType <<enum>> {
+        TEMPERATURE_SENSOR
+        LIGHT_CONTROLLER
+        GATE_CONTROLLER
+        CAMERA
+    }
+
+    class DeviceStatus <<value object>> {
+        +Online: bool
+        +LastValue: float64
+        +UpdatedAt: time.Time
+    }
+
+    class DeviceCommand {
+        +DeviceID: DeviceID
+        +Type: CommandType
+        +Payload: []byte
+        +RequestID: string
+    }
+
+    class CommandType <<enum>> {
+        TURN_ON
+        TURN_OFF
+        OPEN
+        CLOSE
+        SET_TEMPERATURE
+        MEASURE
+        SNAPSHOT
+    }
+
+    class CommandResult {
+        +Success: bool
+        +Error: string
+        +ExternalRequestID: string
+        +Duration: time.Duration
+    }
+}
+
+package events {
+    class SensorReading {
+        +DeviceID: DeviceID
+        +DeviceType: DeviceType
+        +HouseID: HouseID
+        +Value: float64
+        +Unit: string
+        +Timestamp: time.Time
+    }
+
+    class DeviceStatusChanged {
+        +DeviceID: DeviceID
+        +OldStatus: DeviceStatus
+        +NewStatus: DeviceStatus
+        +Timestamp: time.Time
+    }
+
+    class DeviceRegistered {
+        +DeviceID: DeviceID
+        +Type: DeviceType
+        +HouseID: HouseID
+        +Timestamp: time.Time
+    }
+}
+
+package ports {
+    interface DeviceRepository {
+        +Save(ctx, Device) error
+        +FindByID(ctx, DeviceID) (Device, error)
+        +UpdateStatus(ctx, DeviceID, DeviceStatus) error
+    }
+
+    interface ExternalAPI {
+        +SendCommand(ctx, DeviceCommand) (CommandResult, error)
+        +Ping(ctx, DeviceID) (DeviceStatus, error)
+    }
+
+    interface EventPublisher {
+        +PublishSensorReading(ctx, SensorReading) error
+        +PublishStatusChanged(ctx, DeviceStatusChanged) error
+        +PublishRegistered(ctx, DeviceRegistered) error
+    }
+}
+
+package app {
+    class CommandRouter {
+        -api: ExternalAPI
+        -cache: StatusCache
+        -pub: EventPublisher
+        -repo: DeviceRepository
+        +Route(ctx, DeviceCommand) (CommandResult, error)
+    }
+
+    class DeviceRegistry {
+        -repo: DeviceRepository
+        -pub: EventPublisher
+        +Register(ctx, DeviceID, DeviceType, HouseID) error
+    }
+
+    class ConnectionManager {
+        -api: ExternalAPI
+        -breaker: CircuitBreaker
+        +SendWithRetry(ctx, DeviceCommand) (CommandResult, error)
+    }
+
+    class HealthChecker {
+        -repo: DeviceRepository
+        -api: ExternalAPI
+        -pub: EventPublisher
+        -interval: time.Duration
+        +CheckAll(ctx) error
+    }
+
+    class StatusCache {
+        -redis: RedisClient
+        -repo: DeviceRepository
+        +Get(ctx, DeviceID) (DeviceStatus, error)
+        +Set(ctx, DeviceID, DeviceStatus) error
+    }
+}
+
+CommandRouter --> ExternalAPI : delegates
+CommandRouter --> StatusCache : updates
+CommandRouter --> EventPublisher : publishes
+CommandRouter --> DeviceRepository : reads
+ConnectionManager --> ExternalAPI : sends
+DeviceRegistry --> DeviceRepository : saves
+DeviceRegistry --> EventPublisher : publishes
+HealthChecker --> ExternalAPI : pings
+HealthChecker --> EventPublisher : publishes
+HealthChecker --> DeviceRepository : reads
+StatusCache --> DeviceRepository : fallback
+
+Device *-- DeviceID
+Device *-- DeviceType
+Device *-- DeviceStatus
+DeviceCommand *-- DeviceID
+DeviceCommand *-- CommandType
+
+@enduml

@@ -1,0 +1,164 @@
+@startuml
+title db_security — ER-диаграмма (Security & Monitoring)
+
+!define table(x) entity x << (T,#FFAAAA) >>
+!define pk(x) <b>PK</b> x
+
+table(alert_rules) {
+  pk(rule_id) : UUID
+  --
+  house_id : UUID NOT NULL
+  name : VARCHAR(100)
+  -- «Перегрев», «Датчик offline»
+  source_type : VARCHAR(30) NOT NULL
+  -- temperature, device_status,
+  -- gate_timeout, motion_detected
+  condition_type : VARCHAR(20) NOT NULL
+  -- threshold_gt, threshold_lt,
+  -- timeout, equals
+  condition_value : JSONB NOT NULL
+  -- {"threshold": 30, "unit": "celsius"}
+  -- {"timeout_sec": 600}
+  severity : VARCHAR(10) NOT NULL DEFAULT 'warning'
+  -- info, warning, critical
+  cooldown_sec : INT DEFAULT 300
+  -- не поднимать алерт повторно N сек
+  is_active : BOOLEAN DEFAULT true
+  created_at : TIMESTAMPTZ DEFAULT now()
+  updated_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(alerts) {
+  pk(alert_id) : UUID
+  --
+  rule_id : UUID >> alert_rules
+  house_id : UUID NOT NULL
+  device_id : UUID
+  -- логическая ссылка на db_device
+  source_type : VARCHAR(30) NOT NULL
+  severity : VARCHAR(10) NOT NULL
+  message : TEXT NOT NULL
+  -- "Temperature 35.2°C exceeds threshold 30°C"
+  details : JSONB
+  -- {"value": 35.2, "threshold": 30, ...}
+  status : VARCHAR(20) NOT NULL DEFAULT 'open'
+  -- open, acknowledged, resolved
+  raised_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+  acknowledged_at : TIMESTAMPTZ
+  acknowledged_by : VARCHAR(50)
+  resolved_at : TIMESTAMPTZ
+  resolved_by : VARCHAR(50)
+  resolution_note : TEXT
+}
+
+table(event_log) {
+  pk(event_id) : BIGSERIAL
+  --
+  house_id : UUID
+  device_id : UUID
+  event_type : VARCHAR(50) NOT NULL
+  -- sensor_reading, device_status_changed,
+  -- heating_state_changed, lighting_changed,
+  -- gate_state_changed, alert_raised,
+  -- alert_resolved, command_executed
+  source_service : VARCHAR(30) NOT NULL
+  -- device_gateway, climate,
+  -- home_automation, security
+  payload : JSONB NOT NULL
+  -- полный снимок события
+  severity : VARCHAR(10) DEFAULT 'info'
+  created_at : TIMESTAMPTZ NOT NULL DEFAULT now()
+}
+
+table(cameras) {
+  pk(camera_id) : UUID
+  --
+  device_id : UUID NOT NULL UNIQUE
+  -- ссылка на db_device.devices.device_id
+  house_id : UUID NOT NULL
+  name : VARCHAR(100)
+  -- «Камера у ворот», «Камера в гараже»
+  supports_motion_detection : BOOLEAN DEFAULT true
+  supports_snapshot : BOOLEAN DEFAULT true
+  supports_stream : BOOLEAN DEFAULT true
+  stream_url : TEXT
+  -- проксируемый URL
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(video_metadata) {
+  pk(video_id) : UUID
+  --
+  camera_id : UUID NOT NULL >> cameras
+  house_id : UUID NOT NULL
+  type : VARCHAR(20) NOT NULL
+  -- snapshot, clip, stream_segment
+  duration_sec : INT
+  file_size_bytes : BIGINT
+  storage_url : TEXT NOT NULL
+  -- S3 / MinIO URL
+  motion_detected : BOOLEAN DEFAULT false
+  recorded_at : TIMESTAMPTZ NOT NULL
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+table(notifications_log) {
+  pk(notification_id) : BIGSERIAL
+  --
+  alert_id : UUID >> alerts
+  channel : VARCHAR(20) NOT NULL
+  -- webhook, push, email
+  recipient : VARCHAR(200) NOT NULL
+  -- URL, device token, email
+  status : VARCHAR(20) NOT NULL DEFAULT 'pending'
+  -- pending, sent, failed, retried
+  attempts : INT DEFAULT 0
+  last_attempt_at : TIMESTAMPTZ
+  error_message : TEXT
+  sent_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ DEFAULT now()
+}
+
+alert_rules ||--o{ alerts : "rule_id"
+alerts ||--o{ notifications_log : "alert_id"
+cameras ||--o{ video_metadata : "camera_id"
+
+note bottom of event_log
+  Append-only. Никогда не
+  обновляется и не удаляется.
+  
+  Partition by week:
+  event_log_2026_w37
+  event_log_2026_w38
+  ...
+  
+  Retention: 90 дней в горячем
+  хранилище, далее — archive
+  в cold storage (S3).
+  
+  Политекстовый индекс по
+  event_type + house_id + created_at
+  для быстрых запросов дашборда.
+end note
+
+note right of alerts
+  Жизненный цикл:
+  open → acknowledged → resolved
+  
+  acknowledged: администратор увидел
+  resolved: проблема устранена
+  
+  cooldown_sec из alert_rules
+  предотвращает алерт-шторм
+  при повторяющихся событиях.
+end note
+
+note bottom of video_metadata
+  Само видео не хранится в БД —
+  только метаданные и URL.
+  Файлы — в S3/MinIO bucket.
+  Retention клипов: 7 дней,
+  снимков с движением: 30 дней.
+end note
+
+@enduml

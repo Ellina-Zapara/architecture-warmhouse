@@ -1,0 +1,66 @@
+@startuml
+title Умный дом GO — C4 Container Diagram
+
+top to bottom direction
+
+!includeurl https://raw.githubusercontent.com/RicardoNiepel/C4-PlantUML/master/C4_Component.puml
+
+Person(user, "Пользователь", "Владелец дома")
+Person(admin, "Администратор", "Управление системой, контроль аварий")
+
+System_Boundary(smart_home, "Умный дом GO") {
+
+    Container(web_ui, "Веб-интерфейс", "React/TypeScript", "SPA: просмотр и управление устройствами")
+    Container(api_gw, "API Gateway", "Go + Gin", "Аутентификация (JWT), маршрутизация, валидация, rate limiting")
+
+    Container(device_gw, "Device Gateway", "Go", "Регистрация устройств, связь с Third-Party API, публикация событий")
+
+    Container(climate, "Climate Service", "Go", "Управление отоплением, мониторинг температуры, расписания")
+
+    Container(home_auto, "Home Automation", "Go", "Управление освещением и воротами, сценарии автоматизации")
+
+    Container(security, "Security & Monitoring", "Go", "Видеонаблюдение, аварийные события, алерты, уведомления")
+
+    Container(broker, "Message Broker", "Kafka", "Асинхронная передача событий между сервисами")
+
+    ContainerDb(pg_device, "db_device", "PostgreSQL 16", "Устройства, типы, статусы, регистрации")
+    ContainerDb(pg_climate, "db_climate", "PostgreSQL 16", "Режимы отопления, история температур, расписания")
+    ContainerDb(pg_home, "db_home", "PostgreSQL 16", "Состояния ламп, позиции ворот, сценарии")
+    ContainerDb(pg_security, "db_security", "PostgreSQL 16", "Алерты, правила, журнал событий, метаданные видео")
+
+    ContainerDb(redis_device, "redis_device", "Redis", "Кэш статусов устройств, rate-limit per device")
+}
+
+System_Ext(third_party, "Third-Party API", "HTTP/JSON — посредник с датчиками и контроллерами")
+System_Ext(sensors, "Датчики и контроллеры", "Термометры, лампы, ворота, камеры")
+System_Ext(idp, "Identity Provider", "Keycloak / OAuth2 — выдача JWT-токенов")
+
+Rel(user, web_ui, "Просмотр, вкл/выкл (HTTPS)")
+Rel(admin, web_ui, "Управление режимами, контроль аварий (HTTPS)")
+Rel(web_ui, api_gw, "REST API (HTTPS/JSON)")
+
+Rel(api_gw, idp, "Валидация JWT-токена (HTTPS)")
+Rel(api_gw, climate, "Команды отопления, запрос температуры (gRPC)")
+Rel(api_gw, home_auto, "Команды свет/ворота (gRPC)")
+Rel(api_gw, security, "Видео, алерты (gRPC)")
+
+Rel(climate, device_gw, "Команды датчикам температуры (gRPC sync)")
+Rel(home_auto, device_gw, "Команды контроллерам (gRPC sync)")
+Rel(security, device_gw, "Запрос снимков/потока камер (gRPC sync)")
+
+Rel(device_gw, broker, "Публикация: SensorReading, DeviceStatusChanged, DeviceRegistered (async)")
+Rel(climate, broker, "Подписка: SensorReading (async). Публикация: HeatingStateChanged (async)")
+Rel(home_auto, broker, "Подписка: DeviceStatusChanged, GateStateChanged (async). Публикация: LightingChanged, GateStateChanged (async)")
+Rel(security, broker, "Подписка: все события (async). Публикация: AlertRaised, AlertResolved (async)")
+
+Rel(device_gw, pg_device, "Чтение/запись (pgx, TCP+TLS)")
+Rel(climate, pg_climate, "Чтение/запись (pgx, TCP+TLS)")
+Rel(home_auto, pg_home, "Чтение/запись (pgx, TCP+TLS)")
+Rel(security, pg_security, "Чтение/запись (pgx, TCP+TLS)")
+
+Rel(device_gw, redis_device, "Кэш статусов (RESP3, TCP)")
+Rel(device_gw, third_party, "Управление датчиками (HTTP/JSON)")
+Rel(third_party, sensors, "Измерение, команды (HTTP/JSON)")
+Rel(sensors, third_party, "Регистрация, подтверждение (HTTP/JSON)")
+
+@enduml

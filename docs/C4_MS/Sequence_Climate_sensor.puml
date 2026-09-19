@@ -1,0 +1,118 @@
+@startuml
+title Sequence: Датчик прислал показания (async flow)
+
+participant "Датчик" as sensor
+participant "Third-Party API" as api
+participant "Device Gateway" as dgw
+participant "Connection Manager" as cm
+participant "Status Cache" as cache
+participant "Kafka" as broker
+participant "Climate Service\n(Temperature Monitor)" as climate
+participant "Security Service\n(Alert Engine)" as security
+participant "Notifier" as notifier
+participant "db_device" as db_d
+participant "db_climate" as db_c
+participant "db_security" as db_s
+participant "Redis" as redis
+
+sensor -> api: POST /api/sensors/{id}/reading\n{"temperature": 35.2, "timestamp": "..."}
+activate api
+
+api -> dgw: Webhook/Callback: SensorReading{device_id, value: 35.2}
+activate dgw
+
+dgw -> dgw: Нормализация данных → SensorReading event
+
+dgw -> cache: Get device:status:{id}
+activate cache
+cache -> redis: HGETALL device:status:{id}
+activate redis
+redis --> cache: {online: true, last_value: 21.0}
+deactivate redis
+cache --> dgw: Old status: last_value=21.0
+deactivate cache
+
+dgw -> cache: Set device:status:{id} = {online: true, last_value: 35.2}
+activate cache
+cache -> redis: HSET device:status:{id} last_value 35.2
+activate redis
+redis --> cache: OK
+deactivate redis
+cache --> dgw: OK
+deactivate cache
+
+dgw -> db_d: INSERT INTO device_log (device_id, event, value, timestamp)
+activate db_d
+db_d --> dgw: OK
+deactivate db_d
+
+dgw -> broker: Produce to sensor.readings\nSensorReading{value: 35.2, house_id: "house-42"}
+activate broker
+broker --> dgw: ACK
+deactivate broker
+deactivate dgw
+
+== Параллельная обработка подписчиками ==
+
+par Climate Service
+    broker -> climate: Consume SensorReading{value: 35.2, house_id: "house-42"}
+    activate climate
+
+    climate -> db_c: SELECT target_temp, mode FROM heating_modes WHERE house_id = "house-42"
+    activate db_c
+    db_c --> climate: mode=AUTO, target_temp=22.0
+    deactivate db_c
+
+    climate -> climate: 35.2 > 22.0 → выключить нагрев
+
+    climate -> db_c: INSERT INTO temperature_history (house_id, value, timestamp)
+    activate db_c
+    db_c --> climate: OK
+    deactivate db_c
+
+    climate -> broker: Produce HeatingStateChanged{mode: AUTO, active: false, reason: "target_reached"}
+    activate broker
+    broker --> climate: ACK
+    deactivate broker
+
+    deactivate climate
+
+else Security Service
+    broker -> security: Consume SensorReading{value: 35.2, house_id: "house-42"}
+    activate security
+
+    security -> db_s: SELECT * FROM alert_rules WHERE house_id = "house-42" AND active = true
+    activate db_s
+    db_s --> security: Rule: temp > 30 → CRITICAL
+    deactivate db_s
+
+    security -> security: 35.2 > 30 → Alert!
+
+    security -> db_s: INSERT INTO alerts (house_id, severity, message, rule_id)
+    activate db_s
+    db_s --> security: alert_id = "alert-789"
+    deactivate db_s
+
+    security -> db_s: INSERT INTO event_log (event_type, house_id, details)
+    activate db_s
+    db_s --> security: OK
+    deactivate db_s
+
+    security -> notifier: Notify(alert: "Temperature 35.2°C exceeds threshold 30°C", severity: CRITICAL)
+    activate notifier
+
+    notifier -> notifier: Отправка webhook → администратор
+    notifier --> security: OK
+    deactivate notifier
+
+    security -> broker: Produce AlertRaised{alert_id: "alert-789", severity: "critical"}
+    activate broker
+    broker --> security: ACK
+    deactivate broker
+
+    deactivate security
+end
+
+deactivate api
+
+@enduml

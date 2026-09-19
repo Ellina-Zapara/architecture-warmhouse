@@ -1,0 +1,373 @@
+asyncapi: 2.6.0
+info:
+  title: Умный дом GO — Event API
+  version: 1.0.0
+  description: |
+    Асинхронные события, передаваемые через Kafka.
+    Каждый сервис публикует события в свой топик
+    и подписывается на нужные ему.
+
+servers:
+  production:
+    url: kafka://kafka.smarthome-go.example.com:9092
+    protocol: kafka
+    description: Production Kafka cluster
+  local:
+    url: kafka://localhost:9092
+    protocol: kafka
+    description: Local development
+
+# ── Топики Kafka ──
+channels:
+
+  # ════════════════════════════════════════════════════
+  # 1. sensor.readings — публикует Device Gateway
+  # ════════════════════════════════════════════════════
+  sensor.readings:
+    description: |
+      Сырые показания датчиков, нормализованные Device Gateway.
+      Публикуется при каждом получении данных от Third-Party API.
+      Подписчики: Climate Service (для управления отоплением),
+      Security & Monitoring (для проверки порогов).
+    publish:
+      message:
+        $ref: '#/components/messages/SensorReading'
+    subscribe:
+      message:
+        $ref: '#/components/messages/SensorReading'
+
+  # ════════════════════════════════════════════════════
+  # 2. device.status — публикует Device Gateway
+  # ════════════════════════════════════════════════════
+  device.status:
+    description: |
+      Изменение статуса устройства (online/offline/error).
+      Подписчики: Home Automation (обновление состояния ламп/ворот),
+      Security & Monitoring (алерт при offline).
+    publish:
+      message:
+        $ref: '#/components/messages/DeviceStatusChanged'
+    subscribe:
+      message:
+        $ref: '#/components/messages/DeviceStatusChanged'
+
+  # ════════════════════════════════════════════════════
+  # 3. climate.events — публикует Climate Service
+  # ════════════════════════════════════════════════════
+  climate.events:
+    description: |
+      Изменения состояния отопления.
+      Подписчики: Security & Monitoring (фиксация в журнале,
+      проверка правил).
+    publish:
+      message:
+        $ref: '#/components/messages/HeatingStateChanged'
+    subscribe:
+      message:
+        $ref: '#/components/messages/HeatingStateChanged'
+
+  # ════════════════════════════════════════════════════
+  # 4. home.events — публикует Home Automation
+  # ════════════════════════════════════════════════════
+  home.events:
+    description: |
+      Изменения состояния освещения и ворот.
+      Home Automation подписан на собственный топик
+      для сценариев автоматизации (например, «свет при
+      открытии ворот» — поддомен света реагирует на
+      событие поддомена ворот).
+      Security & Monitoring подписан для журнала и алертов.
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/LightingChanged'
+          - $ref: '#/components/messages/GateStateChanged'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/LightingChanged'
+          - $ref: '#/components/messages/GateStateChanged'
+
+  # ════════════════════════════════════════════════════
+  # 5. security.alerts — публикует Security & Monitoring
+  # ════════════════════════════════════════════════════
+  security.alerts:
+    description: |
+      Аварийные события и их закрытие.
+      Подписчики: внешний webhook-сервис для уведомлений
+      администратора (push, email).
+    publish:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/AlertRaised'
+          - $ref: '#/components/messages/AlertResolved'
+    subscribe:
+      message:
+        oneOf:
+          - $ref: '#/components/messages/AlertRaised'
+          - $ref: '#/components/messages/AlertResolved'
+
+# ══════════════════════════════════════════════════════════════
+# Components
+# ══════════════════════════════════════════════════════════════
+components:
+
+  # ── Общий envelope для всех событий ──
+  EventEnvelope:
+    type: object
+    required: [event_id, event_type, source_service, timestamp]
+    properties:
+      event_id:
+        type: string
+        format: uuid
+        description: Уникальный ID события (для идемпотентности)
+      event_type:
+        type: string
+        description: Тип события
+      source_service:
+        type: string
+        enum: [device_gateway, climate, home_automation, security]
+      house_id:
+        type: string
+        format: uuid
+      timestamp:
+        type: string
+        format: date-time
+
+  # ── Сообщения ──
+  messages:
+
+    # 1. SensorReading
+    SensorReading:
+      name: SensorReading
+      title: Показание датчика
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [device_id, device_type, value, unit]
+            properties:
+              event_type:
+                type: string
+                example: "SensorReading"
+              source_service:
+                type: string
+                example: "device_gateway"
+              device_id:
+                type: string
+                format: uuid
+              device_type:
+                type: string
+                enum:
+                  - TEMPERATURE_SENSOR
+                  - LIGHT_CONTROLLER
+                  - GATE_CONTROLLER
+                  - CAMERA
+              value:
+                type: number
+                format: float
+                description: Измеренное значение
+              unit:
+                type: string
+                description: Единица измерения
+                example: "celsius"
+
+    # 2. DeviceStatusChanged
+    DeviceStatusChanged:
+      name: DeviceStatusChanged
+      title: Изменение статуса устройства
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [device_id, old_status, new_status]
+            properties:
+              event_type:
+                type: string
+                example: "DeviceStatusChanged"
+              source_service:
+                type: string
+                example: "device_gateway"
+              device_id:
+                type: string
+                format: uuid
+              old_status:
+                type: string
+                enum: [online, offline, error, maintenance]
+              new_status:
+                type: string
+                enum: [online, offline, error, maintenance]
+
+    # 3. HeatingStateChanged
+    HeatingStateChanged:
+      name: HeatingStateChanged
+      title: Изменение состояния отопления
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [mode, is_active]
+            properties:
+              event_type:
+                type: string
+                example: "HeatingStateChanged"
+              source_service:
+                type: string
+                example: "climate"
+              mode:
+                type: string
+                enum: [off, manual, auto, economy]
+              target_temp:
+                type: number
+                format: float
+                nullable: true
+              current_temp:
+                type: number
+                format: float
+              is_active:
+                type: boolean
+                description: Активен ли нагрев
+              triggered_by:
+                type: string
+                description: Кто инициировал изменение
+                example: "user:123"
+              reason:
+                type: string
+                nullable: true
+                description: Причина (если автоматическое)
+                example: "target_reached"
+
+    # 4. LightingChanged
+    LightingChanged:
+      name: LightingChanged
+      title: Изменение состояния освещения
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [light_id, is_on]
+            properties:
+              event_type:
+                type: string
+                example: "LightingChanged"
+              source_service:
+                type: string
+                example: "home_automation"
+              light_id:
+                type: string
+                format: uuid
+              is_on:
+                type: boolean
+              brightness:
+                type: integer
+                minimum: 0
+                maximum: 100
+                nullable: true
+              color:
+                type: string
+                nullable: true
+              triggered_by:
+                type: string
+                example: "user:123"
+
+    # 5. GateStateChanged
+    GateStateChanged:
+      name: GateStateChanged
+      title: Изменение состояния ворот
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [gate_id, old_position, new_position]
+            properties:
+              event_type:
+                type: string
+                example: "GateStateChanged"
+              source_service:
+                type: string
+                example: "home_automation"
+              gate_id:
+                type: string
+                format: uuid
+              old_position:
+                type: string
+                enum: [open, closed, opening, closing, stopped]
+              new_position:
+                type: string
+                enum: [open, closed, opening, closing, stopped]
+              triggered_by:
+                type: string
+                example: "user:123"
+
+    # 6. AlertRaised
+    AlertRaised:
+      name: AlertRaised
+      title: Аварийное событие
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [alert_id, severity, message, source_type]
+            properties:
+              event_type:
+                type: string
+                example: "AlertRaised"
+              source_service:
+                type: string
+                example: "security"
+              alert_id:
+                type: string
+                format: uuid
+              rule_id:
+                type: string
+                format: uuid
+                nullable: true
+              severity:
+                type: string
+                enum: [info, warning, critical]
+              source_type:
+                type: string
+                enum: [temperature, device_status, gate_timeout, motion_detected]
+              device_id:
+                type: string
+                format: uuid
+                nullable: true
+              message:
+                type: string
+                example: "Temperature 35.2°C exceeds threshold 30°C"
+              details:
+                type: object
+                additionalProperties: true
+
+    # 7. AlertResolved
+    AlertResolved:
+      name: AlertResolved
+      title: Закрытие аварии
+      contentType: application/json
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/EventEnvelope'
+          - type: object
+            required: [alert_id, resolved_by]
+            properties:
+              event_type:
+                type: string
+                example: "AlertResolved"
+              source_service:
+                type: string
+                example: "security"
+              alert_id:
+                type: string
+                format: uuid
+              resolved_by:
+                type: string
+                example: "admin:456"
+              resolution_note:
+                type: string
+                nullable: true

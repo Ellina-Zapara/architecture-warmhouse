@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:15
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB:       smarthome
+      POSTGRES_USER:     smarthome
+      POSTGRES_PASSWORD: smarthome
+    ports:
+      - "5433:5432"
+    volumes:
+    - ./temperature-api/init.sql:/docker-entrypoint-initdb.d/init.sql
+    - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smarthome -d smarthome"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - quickdelivery-network
+
+
+  temperature-api:
+    build: ./temperature-api
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST:     postgres
+      DB_PORT:     5432
+      DB_NAME:     smarthome
+      DB_USER:     smarthome
+      DB_PASSWORD: smarthome
+      FLASK_SECRET_KEY: "dev-secret-change-me"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - quickdelivery-network
+
+volumes:
+  pgdata:
+
+networks:
+  quickdelivery-network:
+    driver: bridge

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WarmHouse Dashboard</title>
+    <style>
+        :root { --primary:#4f46e5; --bg:#f3f4f6; --card:#fff; --text:#111827; }
+        body { font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--text); margin:0; padding:2rem; }
+        .container { max-width:900px; margin:0 auto; }
+        h1 { margin-bottom:1.5rem; color:var(--primary); }
+        .card { background:var(--card); padding:1.5rem; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,.1); margin-bottom:1.5rem; }
+        form { display:grid; gap:.8rem; }
+        label { font-weight:600; font-size:.9rem; }
+        input,select,textarea { padding:.6rem; border:1px solid #d1d5db; border-radius:6px; width:100%; box-sizing:border-box; }
+        input:focus,select:focus { outline:2px solid var(--primary); border-color:transparent; }
+        button { background:var(--primary); color:#fff; border:none; padding:.6rem 1.2rem; border-radius:6px; cursor:pointer; font-weight:600; transition:background .2s; }
+        button:hover { background:#4338ca; }
+        button:disabled { background:#9ca3af; cursor:not-allowed; }
+        .result { margin-top:1rem; padding:.8rem; border-radius:6px; display:none; white-space:pre-wrap; }
+        .success { background:#dcfce7; border:1px solid #bbf7d0; color:#166534; }
+        .error   { background:#fee2e2; border:1px solid #fecaca; color:#b91c1c; }
+        pre { background:#1e1e2e; color:#d4d4d4; padding:1rem; border-radius:6px; overflow-x:auto; margin:0; }
+        table { width:100%; border-collapse:collapse; margin-top:1rem; }
+        th,td { border:1px solid #e5e7eb; padding:.5rem .75rem; text-align:left; font-size:.85rem; }
+        th { background:#f9fafb; font-weight:700; }
+        .top-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <h1>🌡️ WarmHouse: Управление климатом</h1>
+        <button onclick="window.location.href='/'" style="background:#6b7280;">Выйти</button>
+    </div>
+
+    <!-- 1. Текущая температура -->
+    <div class="card">
+        <h3>1. Текущая температура</h3>
+        <form id="getTempForm">
+            <label for="locationId">Локация</label>
+            <input type="text" id="locationId" placeholder="Например: Living Room" required value="Living Room">
+            <button type="submit">Запросить температуру</button>
+        </form>
+        <div id="tempResult" class="result"></div>
+    </div>
+
+    <!-- 2. Регистрация устройства -->
+    <div class="card">
+        <h3>2. Регистрация устройства (сенсора)</h3>
+        <form id="registerDeviceForm">
+            <label for="deviceId">ID устройства</label>
+            <input type="text" id="deviceId" placeholder="Например: dev-001" required>
+            <label for="deviceType">Тип устройства</label>
+            <select id="deviceType" required>
+                <option value="sensor">Датчик температуры</option>
+                <option value="gateway">Шлюз</option>
+                <option value="actuator">Исполнительное устройство</option>
+            </select>
+            <label for="locId">Локация</label>
+            <input type="text" id="locId" placeholder="Например: Living Room" required>
+            <button type="submit">Зарегистрировать</button>
+        </form>
+        <div id="deviceResult" class="result"></div>
+    </div>
+
+    <!-- 3. Все сенсоры -->
+    <div class="card">
+        <h3>3. Зарегистрированные сенсоры</h3>
+        <button id="loadSensorsBtn">Обновить список</button>
+        <div id="sensorsTable" style="display:none;">
+            <table>
+                <thead><tr><th>ID</th><th>Device ID</th><th>Тип</th><th>Локация</th><th>Создан</th></tr></thead>
+                <tbody id="sensorsBody"></tbody>
+            </table>
+        </div>
+        <div id="sensorsResult" class="result"></div>
+    </div>
+</div>
+
+<script>
+const BASE = '';  // same origin
+
+function showResult(id, msg, isErr=false) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'result ' + (isErr ? 'error' : 'success');
+    el.style.display = 'block';
+}
+
+// ── Temperature ──────────────────────────────
+document.getElementById('getTempForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    const loc = document.getElementById('locationId').value;
+    btn.disabled = true; btn.textContent = 'Загрузка...';
+    try {
+        const resp = await fetch(`${BASE}/temperature?location=${encodeURIComponent(loc)}`);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `Ошибка ${resp.status}`);
+        showResult('tempResult', `✅ Температура: ${data.temperature}°C\nЛокация: ${data.location}\nSensor ID: ${data.sensorId}`);
+    } catch (err) {
+        showResult('tempResult', `❌ ${err.message}`, true);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Запросить температуру';
+    }
+});
+
+// ── Register sensor ──────────────────────────
+document.getElementById('registerDeviceForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    const payload = {
+        device_id: document.getElementById('deviceId').value,
+        type:       document.getElementById('deviceType').value,
+        location:   document.getElementById('locId').value
+    };
+    btn.disabled = true; btn.textContent = 'Регистрация...';
+    try {
+        const resp = await fetch(`${BASE}/api/sensors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `Ошибка ${resp.status}`);
+        showResult('deviceResult', `✅ Сенсор зарегистрирован!\n${JSON.stringify(data, null, 2)}`);
+    } catch (err) {
+        showResult('deviceResult', `❌ ${err.message}`, true);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Зарегистрировать';
+    }
+});
+
+// ── Load all sensors ─────────────────────────
+document.getElementById('loadSensorsBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('loadSensorsBtn');
+    btn.disabled = true; btn.textContent = 'Загрузка...';
+    try {
+        const resp = await fetch(`${BASE}/api/sensors`);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `Ошибка ${resp.status}`);
+        const tbody = document.getElementById('sensorsBody');
+        tbody.innerHTML = '';
+        data.forEach(s => {
+            tbody.insertAdjacentHTML('beforeend',
+                `<tr><td>${s.id}</td><td>${s.device_id}</td><td>${s.type}</td><td>${s.location}</td><td>${s.created_at}</td></tr>`);
+        });
+        document.getElementById('sensorsTable').style.display = data.length ? 'block' : 'none';
+        showResult('sensorsResult', `Найдено сенсоров: ${data.length}`);
+    } catch (err) {
+        showResult('sensorsResult', `❌ ${err.message}`, true);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Обновить список';
+    }
+});
+</script>
+</body>
+</html>
