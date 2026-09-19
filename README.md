@@ -106,7 +106,7 @@
 
 * Визуализация контекста системы — диаграмма С4
 
-[Диаграмма контекта монолитного приложения](docs/C4_MS/Container_TOBE.png)
+[Диаграмма контекта монолитного приложения](docs/Monolit/Context_ASIS.png)
 
 Код диаграммы PluntUML [здесь](docs/Monolit/Context_ASIS.puml) 
 
@@ -218,43 +218,40 @@ ClimateService (gRPC сервер): читает metadata, получает x-us
 
 основные типы протоколов и контракты.
 
-Сервис	Протокол	Формат данных	Основное преимущество
-ClimateService	gRPC	Protobuf	Высокая производительность, стриминг показаний
-DeviceService	gRPC	Protobuf	Строгая типизация, генерация кода
-API Gateway	HTTP	JSON	Удобство для внешних клиентов, JWT-валидация
-Identity Provider	OAuth2/OIDC	JWT	Централизованная аутентификация, управление сессиями
+
+| Сервис | Протокол | Формат данных | Основное преимущество |
+| :--- | :--- | :--- | :--- |
+| ClimateService | gRPC | Protobuf | Высокая производительность, стриминг показаний |
+| DeviceService | gRPC | Protobuf | Строгая типизация, генерация кода |
+| API Gateway | HTTP | JSON | Удобство для внешних клиентов, JWT-валидация |
+| Identity Provider | OAuth2/OIDC | JWT | Централизованная аутентификация, управление сессиями |
+
 
 ### Пять эндпоинтов, покрывающих все четыре микросервиса, проходят через API Gateway, который валидирует JWT и маршрутизирует в целевой сервис по gRPC.
 
+
  
-| №  |  Метод |  Путь |  Сервис  |  Назначение|
+| № | Метод | Путь | Сервис | Назначение |
+| :---: | :--- | :--- | :--- | :--- |
+| 1 | POST | `/api/climate/heating` | Climate | Включить/выключить отопление, задать целевую температуру |
+| 2 | GET | `/api/climate/temperature/{houseId}` | Climate | Получить текущую температуру и историю |
+| 3 | POST | `/api/home/lights/{lightId}/control` | Home Automation | Включить/выключить свет, изменить яркость |
+| 4 | POST | `/api/home/gates/{gateId}/control` | Home Automation | Открыть/закрыть/остановить ворота |
+| 5 | GET | `/api/security/alerts` | Security & Monitoring | Получить список алертов с фильтрами |
 
-|1|  POST| /api/climate/heating              | Climate|             Включить/выключить отопление, задать целевую температуру|
-
-|2|  GET|  /api/climate/temperature/{houseId}| Climate|             Получить текущую температуру и историю|
-
-|3|  POST  /api/home/lights/{lightId}/control| Home Automation|     Включить/выключить свет, изменить яркость|
-
-|4|  POST  /api/home/gates/{gateId}/control|   Home Automation|     Открыть/закрыть/остановить ворота|
-
-|5|  GET   /api/security/alerts|             Security & Monitoring|Получить список алертов с фильтрами|
 
 
 ### Шесть методов AsyncAPI, используемые в асинхронном взаимодействии между микросервисами
 
-|Топик|    		 Publisher|        Subscribers|                                  Событие|                        Назначение|
 
-|sensor.readings|  Device Gateway|   Climate, Security|                       SensorReading|                   Сырые показания датчиков|
-
-|device.status|    Device Gateway|   Home Automation, Security|               DeviceStatusChanged|             Изменение online/offline/error|
-
-|device.registry|  Device Gateway|   Climate, Home Automation, Security|      DeviceRegistered|                Регистрация нового устройства|
-
-|climate.events|   Climate|          Security|                                HeatingStateChanged|             Изменение режима отопления|
-
-|home.events|      Home Automation|  Home Automation (self), Security|        LightingChanged, GateStateChanged|  Изменение света и ворот|
-
-|security.alerts|  Security|         Webhook notifier|                        AlertRaised, AlertResolved|   Аварийные события и их закрытие|
+| Топик | Publisher | Subscribers | Событие | Назначение |
+| :--- | :--- | :--- | :--- | :--- |
+| `sensor.readings` | Device Gateway | Climate, Security | `SensorReading` | Сырые показания датчиков |
+| `device.status` | Device Gateway | Home Automation, Security | `DeviceStatusChanged` | Изменение online/offline/error |
+| `device.registry` | Device Gateway | Climate, Home Automation, Security | `DeviceRegistered` | Регистрация нового устройства |
+| `climate.events` | Climate | Security | `HeatingStateChanged` | Изменение режима отопления |
+| `home.events` | Home Automation | Home Automation (self), Security | `LightingChanged`, `GateStateChanged` | Изменение света и ворот |
+| `security.alerts` | Security | Webhook notifier | `AlertRaised`, `AlertResolved` | Аварийные события и их закрытие |
 
 
 ### Контракты .proto
@@ -267,24 +264,21 @@ Identity Provider	OAuth2/OIDC	JWT	Централизованная аутент�
 
 REST‑эндпоинты мапятся на gRPC‑RPC
 
-|REST|(внешний API)|	gRPC RPC (внутренний вызов)|	Сервис
 
-|POST| /api/climate/heating|	rpc SetHeatingControl(SetHeatingControlRequest) returns (SetHeatingControlResponse)|	ClimateService|
-
-|GET| /api/climate/temperature/{houseId}|	rpc GetCurrentTemperature(GetCurrentTemperatureRequest) returns (GetCurrentTemperatureResponse)|	ClimateService|
-
-|POST| /api/home/lights/{lightId}/control|	rpc ControlLight(ControlLightRequest) returns (ControlLightResponse)|	HomeAutomationService|
-
-|POST| /api/home/gates/{gateId}/control|	rpc ControlGate(ControlGateRequest) returns (ControlGateResponse)|	HomeAutomationService|
-
-|GET| /api/security/alerts|	rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse)|	SecurityService|
+| REST (внешний API) | gRPC RPC (внутренний вызов) | Сервис |
+| :--- | :--- | :--- |
+| `POST /api/climate/heating` | `rpc SetHeatingControl(SetHeatingControlRequest) returns (SetHeatingControlResponse)` | ClimateService |
+| `GET /api/climate/temperature/{houseId}` | `rpc GetCurrentTemperature(GetCurrentTemperatureRequest) returns (GetCurrentTemperatureResponse)` | ClimateService |
+| `POST /api/home/lights/{lightId}/control` | `rpc ControlLight(ControlLightRequest) returns (ControlLightResponse)` | HomeAutomationService |
+| `POST /api/home/gates/{gateId}/control` | `rpc ControlGate(ControlGateRequest) returns (ControlGateResponse)` | HomeAutomationService |
+| `GET /api/security/alerts` | `rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse)` | SecurityService |
 
 
 2.Документация API
 
 [Спецификация API](docs/API/API_Smart_house.yaml)
 
-[Спецификация AsyncAPI](docs/API/AsyncAPI_Smart_House.yaml")
+[Спецификация AsyncAPI](docs/API/AsyncAPI_Smart_House.yaml)
 
 [Спецификация proto](docs/API/proto.protobuf)
 
@@ -293,6 +287,20 @@ REST‑эндпоинты мапятся на gRPC‑RPC
 
 Перейдите в apps.
 
-Там находится приложение-монолит для работы с датчиками температуры. В README.md описано как запустить решение.
+Там находится приложение-монолит для работы с датчиками температуры . В [README.md](apps/README.md) описано как запустить решение и как в нем работать.
 
-Приложение следует упаковать в Docker и добавить в docker-compose. Порт по умолчанию установлен 8000
+Приложение упаковано в Docker, автоматически поднимается приложение и БД в docker-compose. Порт в docker-compose установлен 8000. 
+
+В приложении порт установлен по умолчанию 8081, что не аффектит на запуск приложения в контейнере на порте 8000.
+
+Все тесты и запуск веб-приложения, развернутого в контейнере, выполняются по URL http://localhost:8000
+
+Приложение можно запустить вне контейнера по урл http://localhost:8081 , тогда не будут работать запросы на регистрацию сенсора и получение списка сенсоров (температуры по сенсорам), 
+
+т.к. не будет создана база данных.
+
+Инструкция по тестированию Postman [здесь](apps/postman_test.md)
+
+Коллекция Postman [здесь](apps/postman_collection.json)
+
+Документация Swagger [здесь](apps/swagger.yaml)

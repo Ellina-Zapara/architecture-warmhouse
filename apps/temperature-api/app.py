@@ -13,7 +13,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "change-me-in-production")
 Session(app)
 
 # ── DB config ────────────────────────────────────────────
-DB_HOST     = os.environ.get("DB_HOST", "localhost")
+DB_HOST     = os.environ.get("DB_HOST", "postgres")
 DB_PORT     = os.environ.get("DB_PORT", "5432")
 DB_NAME     = os.environ.get("DB_NAME", "smarthome")
 DB_USER     = os.environ.get("DB_USER", "smarthome")
@@ -133,6 +133,33 @@ def get_temperature():
         "temperature": temperature,
     }), 200
 
+# ── Temperature (simulated remote sensor) ─────────────────
+@app.route("/temperaturebysensors", methods=["GET"])
+def get_temperaturebysensors():
+    location = request.args.get("location", "").strip()
+    sensor_id_raw = request.args.get("sensorId", "").strip()
+
+    # Получаем данные по сенсорам из БД:
+    if not location and not sensor_id_raw:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, device_id, location FROM sensors ORDER BY id")
+                rows = cur.fetchall()
+
+            return jsonify({
+                "sensors": [
+                    {
+                        "id": r["id"],
+                        "device_id": r["device_id"],
+                        "location": r["location"],
+                        "temperature": round(random.uniform(18.0, 35.0), 1),
+                    }
+                    for r in rows
+                ]
+            }), 200
+        finally:
+            conn.close()
 
 # ── Health ────────────────────────────────────────────────
 @app.route("/health", methods=["GET"])

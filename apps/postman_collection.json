@@ -1,63 +1,71 @@
 {
   "info": {
+    "_postman_id": "smarthome-api-v2",
     "name": "SmartHome API",
+    "description": "API для управления сенсорами и получения температур умного дома.\n\nБазовый URL: http://localhost:8000",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8000"
-    }
-  ],
   "item": [
     {
-      "name": "Register sensor",
+      "name": "1. Температура по локации",
       "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
+        "method": "GET",
+        "header": [],
         "url": {
-          "raw": "{{base_url}}/api/sensors",
+          "raw": "{{base_url}}/temperature?location=Living%20Room",
           "host": [
             "{{base_url}}"
           ],
           "path": [
-            "api",
-            "sensors"
+            "temperature"
+          ],
+          "query": [
+            {
+              "key": "location",
+              "value": "Living Room",
+              "description": "Название локации"
+            }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"device_id\": \"sensor-001\",\n  \"type\": \"sensor\",\n  \"location\": \"Living Room\"\n}"
-        }
+        "description": "Возвращает случайную температуру для указанной локации. Параметр location передаётся в query string."
       },
       "response": [
         {
-          "name": "201 Created",
-          "status": "Created",
-          "code": 201,
-          "body": "{\n  \"id\": 1,\n  \"device_id\": \"sensor-001\",\n  \"type\": \"sensor\",\n  \"location\": \"Living Room\",\n  \"created_at\": \"2026-09-19T18:50:00Z\"\n}"
-        },
-        {
-          "name": "400 Bad Request",
-          "status": "Bad Request",
-          "code": 400,
-          "body": "{\n  \"error\": \"device_id and location are required\"\n}"
-        },
-        {
-          "name": "409 Conflict",
-          "status": "Conflict",
-          "code": 409,
-          "body": "{\n  \"error\": \"Sensor with this device_id already exists\"\n}"
+          "name": "Успешный ответ",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/temperature?location=Living%20Room",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "temperature"
+              ],
+              "query": [
+                {
+                  "key": "location",
+                  "value": "Living Room"
+                }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n    \"location\": \"Living Room\",\n    \"sensorId\": 1,\n    \"temperature\": 18.9\n}"
         }
       ]
     },
     {
-      "name": "Get all sensors",
+      "name": "2. Список всех сенсоров",
       "request": {
         "method": "GET",
         "header": [],
@@ -70,16 +78,90 @@
             "api",
             "sensors"
           ]
-        }
+        },
+        "description": "Возвращает список всех зарегистрированных устройств/сенсоров из базы данных."
       },
       "response": [
         {
-          "name": "200 OK",
+          "name": "Успешный ответ",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sensors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sensors"
+              ]
+            }
+          },
           "status": "OK",
           "code": 200,
-          "body": "[\n  {\n    \"id\": 1,\n    \"device_id\": \"sensor-001\",\n    \"type\": \"sensor\",\n    \"location\": \"Living Room\",\n    \"created_at\": \"2026-09-19T18:50:00Z\"\n  },\n  {\n    \"id\": 2,\n    \"device_id\": \"sensor-002\",\n    \"type\": \"motion\",\n    \"location\": \"Kitchen\",\n    \"created_at\": \"2026-09-19T18:51:00Z\"\n  }\n]"
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "[\n    {\n        \"id\": 1,\n        \"device_id\": \"dev-001\",\n        \"type\": \"sensor\",\n        \"location\": \"Living Room\",\n        \"created_at\": \"Sat, 19 Sep 2026 15:30:38 GMT\"\n    },\n    {\n        \"id\": 2,\n        \"device_id\": \"dev-002\",\n        \"type\": \"sensor\",\n        \"location\": \"Bedroom\",\n        \"created_at\": \"Sat, 19 Sep 2026 15:30:38 GMT\"\n    },\n    {\n        \"id\": 3,\n        \"device_id\": \"dev-003\",\n        \"type\": \"gateway\",\n        \"location\": \"Kitchen\",\n        \"created_at\": \"Sat, 19 Sep 2026 15:30:38 GMT\"\n    },\n    {\n        \"id\": 4,\n        \"device_id\": \"sensor-1\",\n        \"type\": \"sensor\",\n        \"location\": \"Kitchen\",\n        \"created_at\": \"Sat, 19 Sep 2026 15:34:20 GMT\"\n    },\n    {\n        \"id\": 6,\n        \"device_id\": \"sensor-2\",\n        \"type\": \"sensor\",\n        \"location\": \"Kitchen\",\n        \"created_at\": \"Sat, 19 Sep 2026 16:27:29 GMT\"\n    },\n    {\n        \"id\": 8,\n        \"device_id\": \"sensor-3\",\n        \"type\": \"sensor\",\n        \"location\": \"Garage\",\n        \"created_at\": \"Sat, 19 Sep 2026 16:28:15 GMT\"\n    }\n]"
         }
       ]
+    },
+    {
+      "name": "3. Температура по всем сенсорам",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/temperaturebysensors",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "temperaturebysensors"
+          ]
+        },
+        "description": "Возвращает случайную температуру для каждого зарегистрированного сенсора. Берёт все записи из таблицы sensors и генерирует температуру для каждой."
+      },
+      "response": [
+        {
+          "name": "Успешный ответ",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/temperaturebysensors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "temperaturebysensors"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n    \"sensors\": [\n        {\n            \"id\": 1,\n            \"device_id\": \"dev-001\",\n            \"location\": \"Living Room\",\n            \"temperature\": 24.7\n        },\n        {\n            \"id\": 2,\n            \"device_id\": \"dev-002\",\n            \"location\": \"Bedroom\",\n            \"temperature\": 23.6\n        },\n        {\n            \"id\": 3,\n            \"device_id\": \"dev-003\",\n            \"location\": \"Kitchen\",\n            \"temperature\": 34.3\n        },\n        {\n            \"id\": 4,\n            \"device_id\": \"dev-005\",\n            \"location\": \"Hall\",\n            \"temperature\": 23.4\n        }\n    ]\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
     }
   ]
 }
