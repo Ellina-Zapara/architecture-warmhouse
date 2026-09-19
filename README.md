@@ -260,7 +260,7 @@ Identity Provider	OAuth2/OIDC	JWT	Централизованная аутент�
 
 В одном .proto можно описать оба контракта — это нормально для внутренних микросервисов.
 
-## Маппинг эндпоинтов REST API на внутренний протокол proto 
+### Маппинг эндпоинтов REST API на внутренний протокол proto 
 
 REST‑эндпоинты мапятся на gRPC‑RPC
 
@@ -277,7 +277,6 @@ REST‑эндпоинты мапятся на gRPC‑RPC
 |GET| /api/security/alerts|	rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse)|	SecurityService|
 
 
-
 2.Документация API
 
 [Спецификация API](docs/API/API_Smart_house.yaml)
@@ -287,7 +286,20 @@ REST‑эндпоинты мапятся на gRPC‑RPC
 [Спецификация proto](docs/API/proto.protobuf)
 
 
-Задание 5. Работа с docker и docker-compose
+## Задание 5. Работа с docker и docker-compose
+
+Структура приложения 
+
+apps/
+├── temperature-api/
+│   ├── app.py
+│   ├── Dockerfile
+│   └── requirements.txt
+├── smart_home/
+│   └── init.sql
+└── docker-compose.yml
+
+
 Перейдите в apps.
 
 Там находится приложение-монолит для работы с датчиками температуры. В README.md описано как запустить решение.

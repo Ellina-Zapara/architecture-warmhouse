@@ -1,39 +1,43 @@
 services:
-  order-service:
-    build: ./order-service
-    ports:
-      - "5004:5000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/orders
-    depends_on:
-      - db
-    networks:
-      - quickdelivery-network
-  logistics-service:
-    build: ./logistics-service
-    ports:
-      - "5005:5001"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/orders
-    depends_on:
-      - db
-    networks:
-      - quickdelivery-network
-  db:
+  postgres:
     image: postgres:15
     platform: linux/amd64
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: orders
+      POSTGRES_DB:       smarthome
+      POSTGRES_USER:     smarthome
+      POSTGRES_PASSWORD: smarthome
     ports:
       - "5433:5432"
+    volumes:
+      - ./apps/temperature-api/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smarthome -d smarthome"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temperature-api:
+    build: ./temperature-api
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST:     postgres
+      DB_PORT:     5432
+      DB_NAME:     smarthome
+      DB_USER:     smarthome
+      DB_PASSWORD: smarthome
+      FLASK_SECRET_KEY: "dev-secret-change-me"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - quickdelivery-network
+
+volumes:
+  pgdata:
 
 networks:
   quickdelivery-network:
     driver: bridge
-
-volumes:
-  postgres-data:
